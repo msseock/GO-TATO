@@ -14,7 +14,7 @@
 		C51829F42F7127DF0019DCF3 /* Exceptions for "GoTato" folder in "GoTato" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				Info.plist,
+				Resource/Info.plist,
 			);
 			target = C51829DD2F7127DD0019DCF3 /* GoTato */;
 		};
@@ -143,12 +143,12 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = GoTato/GoTato.entitlements;
+				CODE_SIGN_ENTITLEMENTS = GoTato/Data/CoreData/GoTato.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = ZUGAVD3728;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = GoTato/Info.plist;
+				INFOPLIST_FILE = GoTato/Resource/Info.plist;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UIMainStoryboardFile = "";
@@ -181,12 +181,12 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = GoTato/GoTato.entitlements;
+				CODE_SIGN_ENTITLEMENTS = GoTato/Data/CoreData/GoTato.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = ZUGAVD3728;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = GoTato/Info.plist;
+				INFOPLIST_FILE = GoTato/Resource/Info.plist;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UIMainStoryboardFile = "";
