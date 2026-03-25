@@ -6,24 +6,52 @@
 //
 
 import UIKit
+import SnapKit
+
+protocol MissionSetupDelegate: AnyObject {
+    func missionSetupDidComplete(_ vc: MissionSetupViewController)
+}
 
 final class MissionSetupViewController: BaseViewController {
 
-    override func viewDidLoad() {
-        super.viewDidLoad()
+    var isFromOnboarding: Bool
+    weak var delegate: MissionSetupDelegate?
 
-        // Do any additional setup after loading the view.
+    private let doneButton = UIButton(type: .system)
+
+    init(isFromOnboarding: Bool) {
+        self.isFromOnboarding = isFromOnboarding
+        super.init(nibName: nil, bundle: nil)
     }
-    
 
-    /*
-    // MARK: - Navigation
-
-    // In a storyboard-based application, you will often want to do a little preparation before navigation
-    override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
-        // Get the new view controller using segue.destination.
-        // Pass the selected object to the new view controller.
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
     }
-    */
 
+    override func configureHierarchy() {
+        view.addSubview(doneButton)
+    }
+
+    override func configureLayout() {
+        doneButton.snp.makeConstraints { make in
+            make.center.equalToSuperview()
+        }
+    }
+
+    override func configureView() {
+        doneButton.setTitle("완료", for: .normal)
+        doneButton.addTarget(self, action: #selector(didTapDone), for: .touchUpInside)
+    }
+
+    @objc private func didTapDone() {
+        if isFromOnboarding {
+            UserDefaults.standard.set(true, forKey: "hasCompletedOnboarding")
+            guard let window = view.window else { return }
+            window.rootViewController = MainTabBarController()
+            UIView.transition(with: window, duration: 0.3, options: .transitionCrossDissolve, animations: nil)
+        } else {
+            delegate?.missionSetupDidComplete(self)
+            dismiss(animated: true)
+        }
+    }
 }

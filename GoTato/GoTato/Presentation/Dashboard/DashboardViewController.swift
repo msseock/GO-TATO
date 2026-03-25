@@ -6,24 +6,43 @@
 //
 
 import UIKit
+import SnapKit
 
 final class DashboardViewController: BaseViewController {
 
-    override func viewDidLoad() {
-        super.viewDidLoad()
+    private let titleLabel = UILabel()
+    private let addMissionButton = UIButton(type: .system)
 
-        // Do any additional setup after loading the view.
+    override func configureHierarchy() {
+        view.addSubview(titleLabel)
+        view.addSubview(addMissionButton)
     }
-    
 
-    /*
-    // MARK: - Navigation
-
-    // In a storyboard-based application, you will often want to do a little preparation before navigation
-    override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
-        // Get the new view controller using segue.destination.
-        // Pass the selected object to the new view controller.
+    override func configureLayout() {
+        titleLabel.snp.makeConstraints { make in
+            make.center.equalToSuperview()
+        }
+        addMissionButton.snp.makeConstraints { make in
+            make.top.equalTo(titleLabel.snp.bottom).offset(24)
+            make.centerX.equalToSuperview()
+        }
     }
-    */
 
+    override func configureView() {
+        titleLabel.text = "Dashboard"
+        titleLabel.font = .systemFont(ofSize: 24, weight: .semibold)
+
+        addMissionButton.setTitle("미션 추가", for: .normal)
+        addMissionButton.addTarget(self, action: #selector(didTapAddMission), for: .touchUpInside)
+    }
+
+    @objc private func didTapAddMission() {
+        let vc = MissionSetupViewController(isFromOnboarding: false)
+        vc.delegate = self
+        present(vc, animated: true)
+    }
+}
+
+extension DashboardViewController: MissionSetupDelegate {
+    func missionSetupDidComplete(_ vc: MissionSetupViewController) { }
 }
