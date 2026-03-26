@@ -13,6 +13,7 @@ enum GTTColor {
     static let textSecondary = UIColor(hex: "#9A8778")
     static let textSubtle    = UIColor(hex: "#BEB0A3")
     static let textMuted     = UIColor(hex: "#C4B5A5")
+    static let textQuiet     = UIColor(hex: "#B0A090")
 
     // MARK: - Background & Surface
     static let bgPrimary  = UIColor(hex: "#FFF8EE")
@@ -29,6 +30,7 @@ enum GTTColor {
     static let successBg     = UIColor(hex: "#E5F5E8")
     static let successDark   = UIColor(hex: "#2D5E3A")
     static let successText   = UIColor(hex: "#4A9B5E")
+    static let successCard   = UIColor(hex: "#EDF8F0")
 
     // MARK: - Sage
     static let sage       = UIColor(hex: "#A8C4A0")
@@ -38,24 +40,32 @@ enum GTTColor {
     static let greenDark  = UIColor(hex: "#7BAB61")
 
     // MARK: - Warning
-    static let warning      = UIColor(hex: "#FFD233")
-    static let warningDark  = UIColor(hex: "#E8A800")
-    static let warningText  = UIColor(hex: "#B8860B")
-    static let warningBg    = UIColor(hex: "#FFF4D4")
-    static let streakToday  = UIColor(hex: "#F5B748")
+    static let warning       = UIColor(hex: "#FFD233")
+    static let warningDark   = UIColor(hex: "#E8A800")
+    static let warningText   = UIColor(hex: "#B8860B")
+    static let warningBg     = UIColor(hex: "#FFF4D4")
+    static let streakToday   = UIColor(hex: "#F5B748")
+    static let warningBorder = UIColor(hex: "#FCD34D")
+    static let warningBrown  = UIColor(hex: "#8A4A1C")
+    static let warningOrange = UIColor(hex: "#D4812A")
 
     // MARK: - Info
-    static let info      = UIColor(hex: "#5B8DEF")
-    static let infoLight = UIColor(hex: "#EEF4F8")
-    static let infoText  = UIColor(hex: "#6A7FC0")
+    static let info       = UIColor(hex: "#5B8DEF")
+    static let infoLight  = UIColor(hex: "#EEF4F8")
+    static let infoText   = UIColor(hex: "#6A7FC0")
+    static let infoBorder = UIColor(hex: "#7BA0C0")
 
     // MARK: - Error
     static let error      = UIColor(hex: "#F44336")
     static let errorLight = UIColor(hex: "#FBE4E0")
+    static let errorSolid = UIColor(hex: "#E05A40")
+    static let errorPale  = UIColor(hex: "#FFF0EB")
+    static let errorCard  = UIColor(hex: "#FFF3EE")
 
     // MARK: - Neutral
-    static let tan       = UIColor(hex: "#D4C4B4")
-    static let grayLight = UIColor(hex: "#F5F5F5")
+    static let tan        = UIColor(hex: "#D4C4B4")
+    static let grayLight  = UIColor(hex: "#F5F5F5")
+    static let cardBorder = UIColor(hex: "#F3F4F6")
 }
 
 // MARK: - UIColor+Hex
