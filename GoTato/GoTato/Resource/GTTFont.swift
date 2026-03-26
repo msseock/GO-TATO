@@ -12,6 +12,8 @@ enum GTTFont {
     case caption        // 14pt, 500 — 캡션, 메타 정보
     case captionSmall   // 13pt, 500 — 작은 캡션 텍스트
     case badge          // 12pt, 500 — 뱃지, 태그 라벨
+    case calendarDay    // 12pt, 600 — 요일 헤더 및 기본 날짜 셀
+    case calendarDayBold // 12pt, 700 — 활성 상태 날짜 셀 (status 1/2/3)
     case miniLabel      // 11pt, 700 — 미니 라벨, 섹션 레이블
 
     var font: UIFont {
@@ -27,6 +29,8 @@ enum GTTFont {
         case .caption:        return pretendard(size: 14, weight: .medium)
         case .captionSmall:   return pretendard(size: 13, weight: .medium)
         case .badge:          return pretendard(size: 12, weight: .medium)
+        case .calendarDay:    return pretendard(size: 12, weight: .semibold)
+        case .calendarDayBold: return pretendard(size: 12, weight: .bold)
         case .miniLabel:      return pretendard(size: 11, weight: .bold)
         }
     }

@@ -9,11 +9,12 @@ enum GTTColor {
     static let white        = UIColor(hex: "#FFFFFF")
 
     // MARK: - Text
-    static let textPrimary   = UIColor(hex: "#2C1F14")
-    static let textSecondary = UIColor(hex: "#9A8778")
-    static let textSubtle    = UIColor(hex: "#BEB0A3")
-    static let textMuted     = UIColor(hex: "#C4B5A5")
-    static let textQuiet     = UIColor(hex: "#B0A090")
+    static let textPrimary    = UIColor(hex: "#2C1F14")
+    static let textSecondary  = UIColor(hex: "#9A8778")
+    static let textSubtle     = UIColor(hex: "#BEB0A3")
+    static let textMuted      = UIColor(hex: "#C4B5A5")
+    static let textQuiet      = UIColor(hex: "#B0A090")
+    static let labelSecondary = UIColor(hex: "#3C3C43", alpha: 0.6)
 
     // MARK: - Background & Surface
     static let bgPrimary  = UIColor(hex: "#FFF8EE")
