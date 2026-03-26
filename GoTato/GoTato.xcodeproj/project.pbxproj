@@ -12,6 +12,7 @@
 		C5182A7E2F71BD560019DCF3 /* SnapKit in Frameworks */ = {isa = PBXBuildFile; productRef = C5182A7D2F71BD560019DCF3 /* SnapKit */; };
 		C5182A812F71BD610019DCF3 /* Alamofire in Frameworks */ = {isa = PBXBuildFile; productRef = C5182A802F71BD610019DCF3 /* Alamofire */; };
 		C5182A842F71BE280019DCF3 /* NMapsMap in Frameworks */ = {isa = PBXBuildFile; productRef = C5182A832F71BE280019DCF3 /* NMapsMap */; };
+		C5A429B92F74FF8F00C1F7BF /* FSCalendar in Frameworks */ = {isa = PBXBuildFile; productRef = C5A429B82F74FF8F00C1F7BF /* FSCalendar */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -45,6 +46,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C5182A7E2F71BD560019DCF3 /* SnapKit in Frameworks */,
+				C5A429B92F74FF8F00C1F7BF /* FSCalendar in Frameworks */,
 				C5182A812F71BD610019DCF3 /* Alamofire in Frameworks */,
 				C5182A842F71BE280019DCF3 /* NMapsMap in Frameworks */,
 				C5182A7B2F71BD4A0019DCF3 /* RxSwift in Frameworks */,
@@ -96,6 +98,7 @@
 				C5182A7D2F71BD560019DCF3 /* SnapKit */,
 				C5182A802F71BD610019DCF3 /* Alamofire */,
 				C5182A832F71BE280019DCF3 /* NMapsMap */,
+				C5A429B82F74FF8F00C1F7BF /* FSCalendar */,
 			);
 			productName = GoTato;
 			productReference = C51829DE2F7127DD0019DCF3 /* GoTato.app */;
@@ -130,6 +133,7 @@
 				C5182A7C2F71BD560019DCF3 /* XCRemoteSwiftPackageReference "SnapKit" */,
 				C5182A7F2F71BD610019DCF3 /* XCRemoteSwiftPackageReference "Alamofire" */,
 				C5182A822F71BE280019DCF3 /* XCRemoteSwiftPackageReference "SPM-NMapsMap" */,
+				C5A429B72F74FF8F00C1F7BF /* XCRemoteSwiftPackageReference "FSCalendar" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = C51829DF2F7127DD0019DCF3 /* Products */;
@@ -417,6 +421,14 @@
 				minimumVersion = 3.23.1;
 			};
 		};
+		C5A429B72F74FF8F00C1F7BF /* XCRemoteSwiftPackageReference "FSCalendar" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/WenchaoD/FSCalendar.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.8.4;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -444,6 +456,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = C5182A822F71BE280019DCF3 /* XCRemoteSwiftPackageReference "SPM-NMapsMap" */;
 			productName = NMapsMap;
+		};
+		C5A429B82F74FF8F00C1F7BF /* FSCalendar */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C5A429B72F74FF8F00C1F7BF /* XCRemoteSwiftPackageReference "FSCalendar" */;
+			productName = FSCalendar;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
