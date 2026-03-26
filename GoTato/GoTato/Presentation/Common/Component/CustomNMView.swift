@@ -13,7 +13,8 @@ import UIKit
 class CustomNMView: UIView {
 
     private let mapView = NMFMapView()
-    private let cameraBounds: NMGLatLngBounds
+    private var cameraBounds: NMGLatLngBounds?
+    private var singleCoord: NMGLatLng?
     private var didMoveCamera = false
 
     init(currentCoord: NMGLatLng, destinationCoord: NMGLatLng) {
@@ -25,7 +26,8 @@ class CustomNMView: UIView {
             lat: max(currentCoord.lat, destinationCoord.lat),
             lng: max(currentCoord.lng, destinationCoord.lng)
         )
-        cameraBounds = NMGLatLngBounds(southWest: sw, northEast: ne)
+        self.cameraBounds = NMGLatLngBounds(southWest: sw, northEast: ne)
+        self.singleCoord = nil
         super.init(frame: .zero)
 
         mapView.isScrollGestureEnabled = false
@@ -45,6 +47,27 @@ class CustomNMView: UIView {
         marker2.height = 25
         marker2.mapView = mapView
     }
+    
+    init(mapx: Int, mapy: Int) {
+        
+        let tm128 = NMGTm128(x: Double(mapx), y: Double(mapy))
+        let coord = tm128.toLatLng()
+        
+        self.cameraBounds = nil
+        self.singleCoord = coord
+        super.init(frame: .zero)
+        
+        mapView.isScrollGestureEnabled = true
+        mapView.isZoomGestureEnabled = true
+        addSubview(mapView)
+        mapView.snp.makeConstraints { $0.edges.equalToSuperview() }
+        
+        let marker = NMFMarker(position: coord)
+        marker.iconImage = NMFOverlayImage(name: "destinationMark")
+        marker.width = 25
+        marker.height = 25
+        marker.mapView = mapView
+    }
 
     override func layoutSubviews() {
         super.layoutSubviews()
@@ -52,11 +75,17 @@ class CustomNMView: UIView {
         didMoveCamera = true
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
-            let cameraUpdate = NMFCameraUpdate(
-                fit: self.cameraBounds,
-                padding: 70
-            )
-            self.mapView.moveCamera(cameraUpdate)
+            
+            if let bounds = self.cameraBounds {
+                let cameraUpdate = NMFCameraUpdate(
+                    fit: bounds,
+                    padding: 70
+                )
+                self.mapView.moveCamera(cameraUpdate)
+            } else if let coord = self.singleCoord {
+                let cameraUpdate = NMFCameraUpdate(scrollTo: coord)
+                self.mapView.moveCamera(cameraUpdate)
+            }
         }
     }
 
