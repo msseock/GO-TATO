@@ -46,7 +46,10 @@ final class RoutineSelectViewController: BaseViewController {
 
     // MARK: - Callbacks
 
-    var onRoutineConfirmed: ((MissionRoutine) -> Void)?
+    var onRoutineConfirmed: ((SelectedLocation, MissionRoutine) -> Void)?
+
+    // location 화면에서 전달받은 선택 위치
+    var pendingLocation: SelectedLocation?
 
     // MARK: - Properties
 
@@ -219,7 +222,8 @@ final class RoutineSelectViewController: BaseViewController {
 
         output.routineConfirmed
             .emit(onNext: { [weak self] routine in
-                self?.onRoutineConfirmed?(routine)
+                guard let self, let location = self.pendingLocation else { return }
+                self.onRoutineConfirmed?(location, routine)
             })
             .disposed(by: disposeBag)
     }
