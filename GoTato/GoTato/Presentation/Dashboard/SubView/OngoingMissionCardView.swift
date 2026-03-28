@@ -90,7 +90,12 @@ final class OngoingMissionCardView: UIView {
     private let labelStack = UIStackView()
     private let missionLabel = UILabel()
     private let locationNameLabel = UILabel()
-    private let refreshButton = UIButton(type: .system)
+    private let refreshButton = GTTIconButton(
+        systemName: "arrow.trianglehead.counterclockwise",
+        symbolConfig: UIImage.SymbolConfiguration(pointSize: 12, weight: .semibold),
+        iconColor: GTTColor.black,
+        backgroundColor: GTTColor.cardBorder
+    )
     private let mapContainer = UIView()
     private var currentMapView: CustomNMView?
 
@@ -206,15 +211,7 @@ final class OngoingMissionCardView: UIView {
         locationNameLabel.font = GTTFont.subHeading.font
         locationNameLabel.textColor = GTTColor.black
 
-        let refreshConfig = UIImage.SymbolConfiguration(pointSize: 12, weight: .semibold)
-        refreshButton.setImage(
-            UIImage(systemName: "arrow.trianglehead.counterclockwise", withConfiguration: refreshConfig),
-            for: .normal
-        )
-        refreshButton.tintColor = GTTColor.black
-        refreshButton.backgroundColor = GTTColor.cardBorder
-        refreshButton.layer.cornerRadius = Layout.refreshButtonSize / 2
-        refreshButton.addTarget(self, action: #selector(handleRefreshTap), for: .touchUpInside)
+        refreshButton.onTap = { [weak self] in self?.onRefreshTap?() }
 
         mapContainer.layer.cornerRadius = Layout.mapCornerRadius
         mapContainer.clipsToBounds = true
@@ -253,10 +250,6 @@ final class OngoingMissionCardView: UIView {
         chipMainLabel.text = state.chipText
         chipSubLabel.isHidden = !state.showSubLabel
         updateMap(currentCoord: state.currentCoord, destinationCoord: state.destinationCoord)
-    }
-
-    @objc private func handleRefreshTap() {
-        onRefreshTap?()
     }
 
     private func updateMap(currentCoord: NMGLatLng, destinationCoord: NMGLatLng) {
