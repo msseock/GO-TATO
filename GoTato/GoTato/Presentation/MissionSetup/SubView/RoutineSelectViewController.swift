@@ -1,10 +1,12 @@
 //
-//  RoutineSelectView.swift
+//  RoutineSelectViewController.swift
 //  GoTato
 //
 
 import UIKit
 import SnapKit
+import RxSwift
+import RxCocoa
 
 // MARK: - MissionRoutine
 
@@ -38,38 +40,34 @@ enum DateCardType {
     }
 }
 
-// MARK: - RoutineSelectView
+// MARK: - RoutineSelectViewController
 
-final class RoutineSelectView: UIView {
+final class RoutineSelectViewController: BaseViewController {
 
     // MARK: - Callbacks
 
-    /// DatePicker 표시 요청: (현재 날짜, 최소 날짜, 최대 날짜, 선택 완료 핸들러)
-    var requestDatePicker: ((Date, Date?, Date?, @escaping (Date) -> Void) -> Void)?
-    /// TimePicker 표시 요청: (현재 시각, 선택 완료 핸들러)
-    var requestTimePicker: ((Date, @escaping (Date) -> Void) -> Void)?
-    var onMissionCreate: ((MissionRoutine) -> Void)?
+    var onRoutineConfirmed: ((MissionRoutine) -> Void)?
 
-    // MARK: - State
+    // MARK: - Properties
 
-    private enum SegmentMode { case daily, once }
-    private var segmentMode: SegmentMode = .daily
+    private let viewModel = RoutineSelectViewModel()
+    private let disposeBag = DisposeBag()
 
-    private var startDate: Date = Calendar.current.startOfDay(for: Date())
-    private var endDate: Date = {
-        let cal = Calendar.current
-        return cal.date(byAdding: .day, value: 31, to: cal.startOfDay(for: Date())) ?? Date()
-    }()
-    private var singleDate: Date = Calendar.current.startOfDay(for: Date())
-    private var selectedTime: Date = {
-        var components = Calendar.current.dateComponents([.year, .month, .day], from: Date())
-        components.hour = 9
-        components.minute = 0
-        components.second = 0
-        return Calendar.current.date(from: components) ?? Date()
-    }()
+    // Inputs (Subjects for ViewModel)
+    private let segmentSubject = PublishSubject<Int>()
+    private let startDateSubject = PublishSubject<Date>()
+    private let endDateSubject = PublishSubject<Date>()
+    private let singleDateSubject = PublishSubject<Date>()
+    private let timeSubject = PublishSubject<Date>()
+    private let ctaTappedSubject = PublishSubject<Void>()
 
-    // MARK: - UI
+    // Current State for Picker bounds
+    private var currentStartDate: Date = Date()
+    private var currentEndDate: Date = Date()
+    private var currentSingleDate: Date = Date()
+    private var currentTime: Date = Date()
+
+    // MARK: - UI Components
 
     private let titleLabel = UILabel()
     private let segmentControl = GTTSegmentControl(titles: ["매일매일", "하루만"])
@@ -90,33 +88,28 @@ final class RoutineSelectView: UIView {
         style: .primary
     )
 
-    // MARK: - Init
+    // MARK: - Lifecycle
 
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-        setupHierarchy()
-        setupLayout()
-        setupView()
-        updateDateLabels()
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        bindViewModel()
     }
 
-    required init?(coder: NSCoder) { fatalError() }
+    // MARK: - BaseViewController Overrides
 
-    // MARK: - Setup
-
-    private func setupHierarchy() {
-        addSubview(titleLabel)
-        addSubview(segmentControl)
-        addSubview(startCard)
-        addSubview(endCard)
-        addSubview(singleCard)
-        addSubview(timeCard)
-        addSubview(ctaButton)
+    override func configureHierarchy() {
+        view.addSubview(titleLabel)
+        view.addSubview(segmentControl)
+        view.addSubview(startCard)
+        view.addSubview(endCard)
+        view.addSubview(singleCard)
+        view.addSubview(timeCard)
+        view.addSubview(ctaButton)
     }
 
-    private func setupLayout() {
+    override func configureLayout() {
         titleLabel.snp.makeConstraints { make in
-            make.top.equalTo(safeAreaLayoutGuide).offset(32)
+            make.top.equalTo(view.safeAreaLayoutGuide).offset(32)
             make.leading.trailing.equalToSuperview().inset(24)
         }
 
@@ -147,16 +140,15 @@ final class RoutineSelectView: UIView {
             make.leading.trailing.equalToSuperview().inset(24)
         }
 
-
         ctaButton.snp.makeConstraints { make in
-            make.bottom.equalTo(safeAreaLayoutGuide).inset(24)
+            make.bottom.equalTo(view.safeAreaLayoutGuide).inset(24)
             make.leading.trailing.equalToSuperview().inset(24)
             make.height.equalTo(52)
         }
     }
 
-    private func setupView() {
-        backgroundColor = GTTColor.white
+    override func configureView() {
+        view.backgroundColor = GTTColor.white
 
         titleLabel.text = "출근할 루틴을\n정해볼까요?"
         titleLabel.font = GTTFont.dashboardTitle.font
@@ -164,7 +156,7 @@ final class RoutineSelectView: UIView {
         titleLabel.numberOfLines = 2
 
         segmentControl.onSelectionChanged = { [weak self] index in
-            self?.handleSegmentChange(index: index)
+            self?.segmentSubject.onNext(index)
         }
 
         startCard.onTap = { [weak self] in self?.handleStartCardTap() }
@@ -172,38 +164,68 @@ final class RoutineSelectView: UIView {
         singleCard.onTap = { [weak self] in self?.handleSingleCardTap() }
         timeCard.onTap = { [weak self] in self?.handleTimeCardTap() }
 
-        ctaButton.onTap = { [weak self] in self?.handleCTATap() }
+        ctaButton.onTap = { [weak self] in self?.ctaTappedSubject.onNext(()) }
 
         singleCard.isHidden = true
     }
 
-    // MARK: - Date Labels
+    // MARK: - Binding
 
-    private func updateDateLabels() {
-        startCard.setDate(startDate)
-        endCard.setDate(endDate)
-        singleCard.setDate(singleDate)
-        timeCard.setTime(selectedTime)
+    private func bindViewModel() {
+        let input = RoutineSelectViewModel.Input(
+            segmentSelected: segmentSubject.asObservable(),
+            startDateSelected: startDateSubject.asObservable(),
+            endDateSelected: endDateSubject.asObservable(),
+            singleDateSelected: singleDateSubject.asObservable(),
+            timeSelected: timeSubject.asObservable(),
+            ctaTapped: ctaTappedSubject.asObservable()
+        )
+
+        let output = viewModel.transform(input: input)
+
+        output.mode
+            .drive(onNext: { [weak self] mode in
+                self?.updateUIMode(mode)
+            })
+            .disposed(by: disposeBag)
+
+        output.startDate
+            .drive(onNext: { [weak self] date in
+                self?.currentStartDate = date
+                self?.startCard.setDate(date)
+            })
+            .disposed(by: disposeBag)
+
+        output.endDate
+            .drive(onNext: { [weak self] date in
+                self?.currentEndDate = date
+                self?.endCard.setDate(date)
+            })
+            .disposed(by: disposeBag)
+
+        output.singleDate
+            .drive(onNext: { [weak self] date in
+                self?.currentSingleDate = date
+                self?.singleCard.setDate(date)
+            })
+            .disposed(by: disposeBag)
+
+        output.selectedTime
+            .drive(onNext: { [weak self] time in
+                self?.currentTime = time
+                self?.timeCard.setTime(time)
+            })
+            .disposed(by: disposeBag)
+
+        output.routineConfirmed
+            .emit(onNext: { [weak self] routine in
+                self?.onRoutineConfirmed?(routine)
+            })
+            .disposed(by: disposeBag)
     }
 
-    // MARK: - Segment
-
-    private func handleSegmentChange(index: Int) {
-        let newMode: SegmentMode = index == 0 ? .daily : .once
-
-        // 날짜 값 인계
-        if newMode == .once {
-            singleDate = startDate
-        } else {
-            startDate = singleDate
-            endDate = Calendar.current.date(byAdding: .day, value: 31, to: startDate) ?? startDate
-        }
-
-        segmentMode = newMode
-        updateDateLabels()
-
-        // timeCard 상단 제약 갱신
-        if newMode == .once {
+    private func updateUIMode(_ mode: SegmentMode) {
+        if mode == .once {
             timeCard.snp.remakeConstraints { make in
                 make.top.equalTo(singleCard.snp.bottom).offset(12)
                 make.leading.trailing.equalToSuperview().inset(24)
@@ -216,73 +238,54 @@ final class RoutineSelectView: UIView {
         }
 
         UIView.animate(withDuration: 0.2) {
-            self.startCard.isHidden = newMode == .once
-            self.endCard.isHidden = newMode == .once
-            self.singleCard.isHidden = newMode == .daily
-            self.layoutIfNeeded()
+            self.startCard.isHidden = mode == .once
+            self.endCard.isHidden = mode == .once
+            self.singleCard.isHidden = mode == .daily
+            self.view.layoutIfNeeded()
         }
     }
 
-    // MARK: - Card Taps
+    // MARK: - Picker Actions
 
     private func handleStartCardTap() {
         let today = Calendar.current.startOfDay(for: Date())
-        requestDatePicker?(startDate, today, nil) { [weak self] selected in
-            guard let self else { return }
-            self.startDate = selected
-            
-            let cal = Calendar.current
-            let minEnd = cal.date(byAdding: .day, value: 1, to: selected) ?? selected
-            let maxEnd = cal.date(byAdding: .month, value: 1, to: selected) ?? selected
-            
-            // 종료일이 범위를 벗어나면 자동 조정 (최소 1일 후 ~ 최대 1개월 후)
-            if self.endDate < minEnd || self.endDate > maxEnd {
-                self.endDate = cal.date(byAdding: .day, value: 7, to: selected) ?? selected
-            }
-            self.updateDateLabels()
+        let sheet = DatePickerSheetViewController(initial: currentStartDate, minDate: today, maxDate: nil)
+        sheet.onConfirm = { [weak self] selected in
+            self?.startDateSubject.onNext(selected)
         }
+        present(sheet, animated: true)
     }
 
     private func handleEndCardTap() {
         let cal = Calendar.current
-        let minEnd = cal.date(byAdding: .day, value: 1, to: startDate) ?? startDate
-        let maxEnd = cal.date(byAdding: .month, value: 1, to: startDate) ?? startDate
-        requestDatePicker?(endDate, minEnd, maxEnd) { [weak self] selected in
-            self?.endDate = selected
-            self?.updateDateLabels()
+        let minEnd = cal.date(byAdding: .day, value: 1, to: currentStartDate) ?? currentStartDate
+        let maxEnd = cal.date(byAdding: .month, value: 1, to: currentStartDate) ?? currentStartDate
+        let sheet = DatePickerSheetViewController(initial: currentEndDate, minDate: minEnd, maxDate: maxEnd)
+        sheet.onConfirm = { [weak self] selected in
+            self?.endDateSubject.onNext(selected)
         }
+        present(sheet, animated: true)
     }
 
     private func handleSingleCardTap() {
         let today = Calendar.current.startOfDay(for: Date())
-        requestDatePicker?(singleDate, today, nil) { [weak self] selected in
-            self?.singleDate = selected
-            self?.updateDateLabels()
+        let sheet = DatePickerSheetViewController(initial: currentSingleDate, minDate: today, maxDate: nil)
+        sheet.onConfirm = { [weak self] selected in
+            self?.singleDateSubject.onNext(selected)
         }
+        present(sheet, animated: true)
     }
 
     private func handleTimeCardTap() {
-        requestTimePicker?(selectedTime) { [weak self] selected in
-            self?.selectedTime = selected
-            self?.updateDateLabels()
+        let sheet = TimePickerSheetViewController(initial: currentTime)
+        sheet.onConfirm = { [weak self] selected in
+            self?.timeSubject.onNext(selected)
         }
-    }
-
-    // MARK: - CTA
-
-    private func handleCTATap() {
-        let routine: MissionRoutine
-        switch segmentMode {
-        case .daily:
-            routine = MissionRoutine(mode: .daily, startDate: startDate, endDate: endDate, deadline: selectedTime)
-        case .once:
-            routine = MissionRoutine(mode: .once, startDate: singleDate, endDate: nil, deadline: selectedTime)
-        }
-        onMissionCreate?(routine)
+        present(sheet, animated: true)
     }
 }
 
-// MARK: - GTTSegmentControl
+// MARK: - Custom Views
 
 private final class GTTSegmentControl: UIView {
 
@@ -371,8 +374,6 @@ private final class GTTSegmentControl: UIView {
     }
 }
 
-// MARK: - DateCard (매일매일 모드)
-
 private final class DateCard: UIView {
 
     var onTap: (() -> Void)?
@@ -454,4 +455,109 @@ private final class DateCard: UIView {
     }
 
     @objc private func tapped() { onTap?() }
+}
+
+// MARK: - Picker View Controllers
+
+private final class TimePickerSheetViewController: UIViewController {
+
+    var onConfirm: ((Date) -> Void)?
+
+    private let timePicker = UIDatePicker()
+    private let confirmButton = GTTMainButton(title: "확인", icon: UIImage(systemName: "checkmark"), style: .primary)
+
+    init(initial: Date) {
+        super.init(nibName: nil, bundle: nil)
+        timePicker.datePickerMode = .time
+        timePicker.preferredDatePickerStyle = .wheels
+        timePicker.locale = Locale(identifier: "ko_KR")
+        timePicker.minuteInterval = 5
+        timePicker.date = initial
+
+        modalPresentationStyle = .pageSheet
+        if let sheet = sheetPresentationController {
+            sheet.detents = [.medium()]
+            sheet.prefersGrabberVisible = true
+            sheet.preferredCornerRadius = 20
+        }
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = GTTColor.white
+
+        view.addSubview(timePicker)
+        view.addSubview(confirmButton)
+
+        timePicker.snp.makeConstraints { make in
+            make.top.equalTo(view.safeAreaLayoutGuide).offset(8)
+            make.leading.trailing.equalToSuperview().inset(16)
+        }
+
+        confirmButton.snp.makeConstraints { make in
+            make.top.equalTo(timePicker.snp.bottom).offset(16)
+            make.leading.trailing.equalToSuperview().inset(24)
+            make.height.equalTo(52)
+        }
+
+        confirmButton.onTap = { [weak self] in
+            guard let self else { return }
+            self.onConfirm?(self.timePicker.date)
+            self.dismiss(animated: true)
+        }
+    }
+}
+
+private final class DatePickerSheetViewController: UIViewController {
+
+    var onConfirm: ((Date) -> Void)?
+
+    private let datePicker = UIDatePicker()
+    private let confirmButton = GTTMainButton(title: "확인", icon: UIImage(systemName: "checkmark"), style: .primary)
+
+    init(initial: Date, minDate: Date?, maxDate: Date?) {
+        super.init(nibName: nil, bundle: nil)
+        datePicker.date = initial
+        datePicker.minimumDate = minDate
+        datePicker.maximumDate = maxDate
+        datePicker.datePickerMode = .date
+        datePicker.preferredDatePickerStyle = .inline
+        datePicker.locale = Locale(identifier: "ko_KR")
+
+        modalPresentationStyle = .pageSheet
+        if let sheet = sheetPresentationController {
+            sheet.detents = [.medium()]
+            sheet.prefersGrabberVisible = true
+            sheet.preferredCornerRadius = 20
+        }
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = GTTColor.white
+
+        view.addSubview(datePicker)
+        view.addSubview(confirmButton)
+
+        datePicker.snp.makeConstraints { make in
+            make.top.equalTo(view.safeAreaLayoutGuide).offset(8)
+            make.leading.trailing.equalToSuperview().inset(16)
+        }
+
+        confirmButton.snp.makeConstraints { make in
+            make.top.equalTo(datePicker.snp.bottom).offset(16)
+            make.leading.trailing.equalToSuperview().inset(24)
+            make.height.equalTo(52)
+        }
+
+        confirmButton.onTap = { [weak self] in
+            guard let self else { return }
+            self.onConfirm?(self.datePicker.date)
+            self.dismiss(animated: true)
+        }
+    }
 }
