@@ -32,6 +32,7 @@ class CustomNMView: UIView {
 
         mapView.isScrollGestureEnabled = false
         mapView.isZoomGestureEnabled = false
+        mapView.isUserInteractionEnabled = false
         addSubview(mapView)
         mapView.snp.makeConstraints { $0.edges.equalToSuperview() }
 
