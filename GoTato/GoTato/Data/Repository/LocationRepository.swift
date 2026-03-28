@@ -37,6 +37,10 @@ final class LocationRepository: LocationRepositoryProtocol {
     func createLocation(name: String, lati: Double, longi: Double) -> Single<Location> {
         let viewContext = stack.viewContext
         return stack.performBackgroundTask { ctx in
+            #if DEBUG
+            print("[DB][Location] createLocation 시작 - name: \"\(name)\", lati: \(lati), longi: \(longi)")
+            #endif
+
             let location = Location(context: ctx)
             location.name = name
             location.lati = lati
@@ -44,6 +48,11 @@ final class LocationRepository: LocationRepositoryProtocol {
             // save()를 먼저 호출해야 임시 ID → 영구 ID로 전환됨
             // performBackgroundTask의 save()는 이후 no-op
             try ctx.save()
+
+            #if DEBUG
+            print("[DB][Location] ✅ createLocation 완료 - name: \"\(name)\"")
+            #endif
+
             return location.objectID
         }
         .observe(on: MainScheduler.instance)
@@ -61,12 +70,21 @@ final class LocationRepository: LocationRepositoryProtocol {
 
         do {
             if let existing = try stack.viewContext.fetch(request).first {
+                #if DEBUG
+                print("[DB][Location] findOrCreateLocation - 기존 Location 재사용: \"\(existing.name ?? "")\" (lati: \(lati), longi: \(longi))")
+                #endif
                 return .just(existing)
             }
         } catch {
+            #if DEBUG
+            print("[DB][Location] findOrCreateLocation fetch 실패: \(error)")
+            #endif
             return .error(error)
         }
 
+        #if DEBUG
+        print("[DB][Location] findOrCreateLocation - 동일 좌표 없음, 신규 생성")
+        #endif
         return createLocation(name: name, lati: lati, longi: longi)
     }
 }

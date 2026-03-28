@@ -91,10 +91,17 @@ final class AttendanceRepository: AttendanceRepositoryProtocol {
     /// 출석 기록. recordDate를 저장하고 DATABASE.md 정책에 따라 status를 계산한다.
     func recordAttendance(attendanceID: UUID, recordDate: Date) -> Single<Void> {
         return stack.performBackgroundTask { ctx in
+            #if DEBUG
+            print("[DB][Attendance] recordAttendance 시작 - attendanceID: \(attendanceID), recordDate: \(recordDate)")
+            #endif
+
             let request = Attendance.fetchRequest()
             request.predicate = NSPredicate(format: "id == %@", attendanceID as CVarArg)
             request.fetchLimit = 1
             guard let attendance = try ctx.fetch(request).first else {
+                #if DEBUG
+                print("[DB][Attendance] ❌ recordAttendance 실패 - attendanceID \(attendanceID) 찾을 수 없음")
+                #endif
                 throw RepositoryError.notFound
             }
 
@@ -109,6 +116,10 @@ final class AttendanceRepository: AttendanceRepositoryProtocol {
                 // UI에서 3h 이후 버튼 비활성화이므로 정상 도달 불가. 방어적 처리.
                 attendance.attendanceStatus = .fail
             }
+
+            #if DEBUG
+            print("[DB][Attendance] ✅ recordAttendance 완료 - planDate: \(attendance.planDate!), recordDate: \(recordDate), status: \(attendance.attendanceStatus)")
+            #endif
         }
     }
 
@@ -119,6 +130,10 @@ final class AttendanceRepository: AttendanceRepositoryProtocol {
     func batchMarkFailed() -> Single<Void> {
         let viewContext = stack.viewContext
         return stack.performBackgroundTask { ctx in
+            #if DEBUG
+            print("[DB][Attendance] batchMarkFailed 시작")
+            #endif
+
             // planDate + 3h < now  ⟺  planDate < now - 3h
             let threeHoursAgo = Date().addingTimeInterval(-3 * 3600)
 
@@ -132,6 +147,10 @@ final class AttendanceRepository: AttendanceRepositoryProtocol {
 
             let result = try ctx.execute(batchUpdate) as! NSBatchUpdateResult
             let updatedIDs = result.result as! [NSManagedObjectID]
+
+            #if DEBUG
+            print("[DB][Attendance] ✅ batchMarkFailed 완료 - \(updatedIDs.count)개 → fail(3) 처리")
+            #endif
 
             // NSBatchUpdateRequest는 컨텍스트 object graph를 우회하므로
             // viewContext에 변경사항을 명시적으로 반영해야 한다.
