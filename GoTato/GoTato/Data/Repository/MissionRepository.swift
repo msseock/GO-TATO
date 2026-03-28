@@ -32,7 +32,8 @@ final class MissionRepository: MissionRepositoryProtocol {
             let request = Mission.fetchRequest()
             request.sortDescriptors = [NSSortDescriptor(key: "startDate", ascending: true)]
             do {
-                observer(.success(try context.fetch(request)))
+                let results = try context.fetch(request)
+                observer(.success(results))
             } catch {
                 observer(.failure(error))
             }
@@ -48,7 +49,8 @@ final class MissionRepository: MissionRepositoryProtocol {
             request.predicate = NSPredicate(format: "endDate >= %@", Date() as CVarArg)
             request.sortDescriptors = [NSSortDescriptor(key: "startDate", ascending: true)]
             do {
-                observer(.success(try context.fetch(request)))
+                let results = try context.fetch(request)
+                observer(.success(results))
             } catch {
                 observer(.failure(error))
             }
@@ -60,26 +62,32 @@ final class MissionRepository: MissionRepositoryProtocol {
 
     /// 미션 생성.
     /// 사이드 이펙트: startDate~endDate 각 날짜에 Attendance 일괄 생성.
-    /// DATABASE.md 제약 조건: 활성 미션 10개 제한, deadline ±5분 충돌, 기간 1달 초과.
+    /// DATABASE.md 제약 조건: 기간 오버랩 미션 10개 제한, deadline ±5분 충돌, 기간 1달 초과.
     func createMission(title: String, deadline: Date, startDate: Date, endDate: Date, location: Location) -> Single<Void> {
         let locationID = location.objectID
 
         return stack.performBackgroundTask { ctx in
-            let now = Date()
+
             let dateService = GTTDateService.shared
 
-            // 활성 미션 조회 (제약 조건 검사에 재사용)
-            let activeFetch = Mission.fetchRequest()
-            activeFetch.predicate = NSPredicate(format: "endDate >= %@", now as CVarArg)
-            let activeMissions = try ctx.fetch(activeFetch)
+            // 기간 오버랩 미션 조회: 새 미션 기간(startDate~endDate)과 하루라도 겹치는 기존 미션
+            // 겹침 조건: 기존미션.startDate <= newEnd AND 기존미션.endDate >= newStart
+            let overlapFetch = Mission.fetchRequest()
+            overlapFetch.predicate = NSPredicate(
+                format: "startDate <= %@ AND endDate >= %@",
+                endDate as CVarArg,
+                startDate as CVarArg
+            )
+            let overlappingMissions = try ctx.fetch(overlapFetch)
 
-            // 1. 진행 중 미션 10개 이상 → 생성 불가
-            guard activeMissions.count < 10 else {
+
+            // 1. 기간 겹치는 미션 10개 이상 → 생성 불가
+            guard overlappingMissions.count < 10 else {
                 throw RepositoryError.tooManyActiveMissions
             }
 
-            // 2. 기존 활성 미션의 deadline 시각과 ±5분 이내 충돌
-            for existing in activeMissions {
+            // 2. 기간이 겹치는 기존 미션의 deadline 시각과 ±5분 이내 충돌
+            for existing in overlappingMissions {
                 guard dateService.minutesBetweenTimesOfDay(deadline, existing.deadline!) > 5 else {
                     throw RepositoryError.deadlineConflict
                 }
@@ -101,7 +109,8 @@ final class MissionRepository: MissionRepositoryProtocol {
             mission.location  = ctx.object(with: locationID) as? Location
 
             // Attendance 일괄 생성 (사이드 이펙트)
-            for day in dateService.calendarDays(from: startDate, through: endDate) {
+            let days = dateService.calendarDays(from: startDate, through: endDate)
+            for day in days {
                 let attendance = Attendance(context: ctx)
                 attendance.planDate = dateService.combining(date: day, timeFrom: deadline)
                 attendance.mission  = mission
@@ -122,6 +131,7 @@ final class MissionRepository: MissionRepositoryProtocol {
                 throw RepositoryError.notFound
             }
 
+            let oldDeadline = mission.deadline!
             mission.deadline = newDeadline
 
             // pending Attendance의 planDate만 업데이트
