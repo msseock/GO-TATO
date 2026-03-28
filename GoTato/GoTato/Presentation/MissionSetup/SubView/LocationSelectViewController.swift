@@ -1,5 +1,5 @@
 //
-//  LocationSelectView.swift
+//  LocationSelectViewController.swift
 //  GoTato
 //
 
@@ -8,8 +8,6 @@ import SnapKit
 import RxSwift
 import RxCocoa
 import NMapsMap
-
-// MARK: - SelectedLocation
 
 struct SelectedLocation {
     let name: String
@@ -20,34 +18,26 @@ struct SelectedLocation {
     let mapy: Int
 }
 
-// MARK: - LocationSelectView
+final class LocationSelectViewController: BaseViewController {
 
-final class LocationSelectView: UIView {
-
-    // MARK: - Callback
-
-    var onLocationConfirmed: ((SelectedLocation) -> Void)?
-
-    // MARK: - ViewModel
+    // MARK: - Properties
 
     private let viewModel = LocationSelectViewModel()
     private let disposeBag = DisposeBag()
-
-    // ViewModel Input subjects
-    private let searchTextSubject = PublishSubject<String>()
-    private let clearTapSubject   = PublishSubject<Void>()
+    
+    // Inputs (Subjects for ViewModel)
     private let itemTappedSubject = PublishSubject<Int>()
     private let ctaTappedSubject  = PublishSubject<Void>()
 
-    // MARK: - Local View State
-
+    // Local State
     private var currentItems: [NaverLocalItem] = []
     private var currentSelectedIndex: Int?
 
-    // MARK: - UI
+    // Callbacks
+    var onLocationConfirmed: ((SelectedLocation) -> Void)?
 
-    private let scrollView   = UIScrollView()
-    private let contentView  = UIView()
+    // MARK: - UI Components
+
     private let titleLabel   = UILabel()
 
     // Search
@@ -75,57 +65,37 @@ final class LocationSelectView: UIView {
 
     // MARK: - Constraints
 
-    private var rListHeightConstraint:    Constraint?
+    private var rListHeightConstraint:      Constraint?
     private var mapPreviewHeightConstraint: Constraint?
-    private var ctaBottomConstraint:      Constraint?
+    private var ctaBottomConstraint:        Constraint?
 
-    // MARK: - Init
+    // MARK: - Lifecycle
 
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-        setupHierarchy()
-        setupLayout()
-        setupView()
-        setupEmptyView()
-        setupBindings()
+    override func viewDidLoad() {
+        super.viewDidLoad()
         setupKeyboardObservers()
+        bindViewModel()
     }
 
-    required init?(coder: NSCoder) { fatalError() }
+    // MARK: - BaseViewController Overrides
 
-    // MARK: - Hierarchy
-
-    private func setupHierarchy() {
-        addSubview(scrollView)
-        scrollView.addSubview(contentView)
-        contentView.addSubview(titleLabel)
-        contentView.addSubview(searchContainer)
+    override func configureHierarchy() {
+        view.addSubview(titleLabel)
+        view.addSubview(searchContainer)
         searchContainer.addSubview(searchIconView)
         searchContainer.addSubview(searchField)
         searchContainer.addSubview(clearButton)
-        contentView.addSubview(rListContainer)
+        view.addSubview(rListContainer)
         rListContainer.addSubview(tableView)
         rListContainer.addSubview(emptyView)
-        contentView.addSubview(mapPreviewContainer)
+        view.addSubview(mapPreviewContainer)
         mapPreviewContainer.addSubview(nmMapView)
-        addSubview(ctaButton)
+        view.addSubview(ctaButton)
     }
 
-    // MARK: - Layout
-
-    private func setupLayout() {
-        scrollView.snp.makeConstraints { make in
-            make.top.leading.trailing.equalToSuperview()
-            make.bottom.equalTo(ctaButton.snp.top).offset(-8)
-        }
-
-        contentView.snp.makeConstraints { make in
-            make.edges.equalToSuperview()
-            make.width.equalToSuperview()
-        }
-
+    override func configureLayout() {
         titleLabel.snp.makeConstraints { make in
-            make.top.equalToSuperview().offset(32)
+            make.top.equalTo(view.safeAreaLayoutGuide).offset(32)
             make.leading.trailing.equalToSuperview().inset(24)
         }
 
@@ -166,24 +136,20 @@ final class LocationSelectView: UIView {
             make.top.equalTo(rListContainer.snp.bottom).offset(12)
             make.leading.trailing.equalToSuperview().inset(24)
             mapPreviewHeightConstraint = make.height.equalTo(0).constraint
-            make.bottom.equalToSuperview().inset(16)
+            make.bottom.lessThanOrEqualTo(ctaButton.snp.top).offset(-16)
         }
 
         nmMapView.snp.makeConstraints { $0.edges.equalToSuperview() }
 
         ctaButton.snp.makeConstraints { make in
             make.leading.trailing.equalToSuperview().inset(24)
-            ctaBottomConstraint = make.bottom.equalTo(safeAreaLayoutGuide).inset(24).constraint
+            ctaBottomConstraint = make.bottom.equalTo(view.safeAreaLayoutGuide).inset(24).constraint
             make.height.equalTo(52)
         }
     }
 
-    // MARK: - View Setup
-
-    private func setupView() {
-        backgroundColor = GTTColor.white
-        scrollView.showsVerticalScrollIndicator = false
-        scrollView.alwaysBounceVertical = false
+    override func configureView() {
+        view.backgroundColor = GTTColor.white
 
         titleLabel.text = "출근할 위치를\n정해볼까요?"
         titleLabel.font = GTTFont.dashboardTitle.font
@@ -217,13 +183,12 @@ final class LocationSelectView: UIView {
         rListContainer.isHidden = true
         rListContainer.backgroundColor = .clear
 
-        tableView.register(LocationResultCell.self, forCellReuseIdentifier: LocationResultCell.identifier)
+        tableView.register(LocationResultCell.self, forCellReuseIdentifier: "LocationResultCell")
         tableView.dataSource = self
         tableView.delegate = self
         tableView.separatorStyle = .none
         tableView.backgroundColor = .clear
         tableView.rowHeight = 65
-        tableView.isScrollEnabled = true
         tableView.showsVerticalScrollIndicator = false
 
         mapPreviewContainer.layer.cornerRadius = 14
@@ -237,9 +202,11 @@ final class LocationSelectView: UIView {
         marker.width = 25
         marker.height = 25
 
-        ctaButton.isEnabled = false
-        ctaButton.onTap = { [weak self] in self?.ctaTappedSubject.onNext(()) }
+        setupEmptyView()
+        setupInternalActions()
     }
+
+    // MARK: - Setup
 
     private func setupEmptyView() {
         let icon = UIImageView(image: UIImage(systemName: "magnifyingglass.circle"))
@@ -267,34 +234,33 @@ final class LocationSelectView: UIView {
         emptyView.isHidden = true
     }
 
-    // MARK: - Bindings
-
-    private func setupBindings() {
-        // searchField → searchTextSubject
-        searchField.rx.text.orEmpty
-            .bind(to: searchTextSubject)
-            .disposed(by: disposeBag)
-
-        // clearButton
+    private func setupInternalActions() {
         clearButton.rx.tap
             .subscribe(onNext: { [weak self] in
                 guard let self else { return }
                 self.searchField.text = ""
                 self.searchField.resignFirstResponder()
-                self.searchTextSubject.onNext("")
-                self.clearTapSubject.onNext(())
             })
             .disposed(by: disposeBag)
 
+        ctaButton.onTap = { [weak self] in
+            self?.ctaTappedSubject.onNext(())
+        }
+    }
+
+    // MARK: - Binding
+
+    private func bindViewModel() {
         let input = LocationSelectViewModel.Input(
-            searchText: searchTextSubject.asObservable(),
-            clearTap: clearTapSubject.asObservable(),
+            searchText: searchField.rx.text.orEmpty.asObservable(),
+            clearTap: clearButton.rx.tap.asObservable(),
             itemTapped: itemTappedSubject.asObservable(),
             ctaTapped: ctaTappedSubject.asObservable()
         )
+        
         let output = viewModel.transform(input: input)
 
-        // items + hasSearched → rList 상태
+        // Result List
         Driver.combineLatest(output.items, output.hasSearched, output.isEmptyResult)
             .drive(onNext: { [weak self] items, hasSearched, isEmptyResult in
                 guard let self else { return }
@@ -303,7 +269,7 @@ final class LocationSelectView: UIView {
             })
             .disposed(by: disposeBag)
 
-        // selectedIndex → 셀 하이라이트
+        // Selected Index
         output.selectedIndex
             .drive(onNext: { [weak self] idx in
                 guard let self else { return }
@@ -312,7 +278,7 @@ final class LocationSelectView: UIView {
             })
             .disposed(by: disposeBag)
 
-        // mapCoord → 지도 프리뷰
+        // Map Coord
         output.mapCoord
             .drive(onNext: { [weak self] coord in
                 self?.updateMapPreview(coord: coord)
@@ -330,20 +296,22 @@ final class LocationSelectView: UIView {
             })
             .disposed(by: disposeBag)
 
-        // locationConfirmed
+        // Confirmation
         output.locationConfirmed
-            .emit(onNext: { [weak self] loc in self?.onLocationConfirmed?(loc) })
+            .emit(onNext: { [weak self] loc in
+                self?.onLocationConfirmed?(loc)
+            })
             .disposed(by: disposeBag)
     }
 
-    // MARK: - rList 상태 업데이트
+    // MARK: - UI Updates
 
     private func updateRListUI(items: [NaverLocalItem], hasSearched: Bool, isEmptyResult: Bool) {
         if !hasSearched {
             rListContainer.isHidden = true
             rListHeightConstraint?.update(offset: 0)
             clearButton.isHidden = true
-            UIView.animate(withDuration: 0.2) { self.layoutIfNeeded() }
+            UIView.animate(withDuration: 0.2) { self.view.layoutIfNeeded() }
             return
         }
 
@@ -364,10 +332,8 @@ final class LocationSelectView: UIView {
             tableView.reloadData()
         }
 
-        UIView.animate(withDuration: 0.2) { self.layoutIfNeeded() }
+        UIView.animate(withDuration: 0.2) { self.view.layoutIfNeeded() }
     }
-
-    // MARK: - 지도 프리뷰
 
     private func updateMapPreview(coord: NMGLatLng?) {
         if let coord {
@@ -385,7 +351,7 @@ final class LocationSelectView: UIView {
             mapPreviewContainer.isHidden = true
             mapPreviewHeightConstraint?.update(offset: 0)
         }
-        UIView.animate(withDuration: 0.2) { self.layoutIfNeeded() }
+        UIView.animate(withDuration: 0.2) { self.view.layoutIfNeeded() }
     }
 
     // MARK: - Keyboard
@@ -399,31 +365,28 @@ final class LocationSelectView: UIView {
         guard let info = n.userInfo,
               let frame = info[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect,
               let duration = info[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double else { return }
-        let frameInView = convert(frame, from: nil)
-        let offset = max(bounds.maxY - frameInView.minY - safeAreaInsets.bottom, 24)
+        let frameInView = view.convert(frame, from: nil)
+        let offset = max(view.bounds.maxY - frameInView.minY - view.safeAreaInsets.bottom, 24)
         ctaBottomConstraint?.update(inset: offset)
-        UIView.animate(withDuration: duration) { self.layoutIfNeeded() }
+        UIView.animate(withDuration: duration) { self.view.layoutIfNeeded() }
     }
 
     @objc private func keyboardWillHide(_ n: Notification) {
         guard let duration = n.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double else { return }
         ctaBottomConstraint?.update(inset: 24)
-        UIView.animate(withDuration: duration) { self.layoutIfNeeded() }
+        UIView.animate(withDuration: duration) { self.view.layoutIfNeeded() }
     }
-
-    deinit { NotificationCenter.default.removeObserver(self) }
 }
 
 // MARK: - UITableViewDataSource / Delegate
 
-extension LocationSelectView: UITableViewDataSource, UITableViewDelegate {
-
+extension LocationSelectViewController: UITableViewDataSource, UITableViewDelegate {
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         currentItems.count
     }
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(withIdentifier: LocationResultCell.identifier, for: indexPath) as! LocationResultCell
+        let cell = tableView.dequeueReusableCell(withIdentifier: "LocationResultCell", for: indexPath) as! LocationResultCell
         let item = currentItems[indexPath.row]
         let isLast = indexPath.row == currentItems.count - 1
         cell.configure(with: item, isSelected: currentSelectedIndex == indexPath.row, isLast: isLast)
@@ -434,13 +397,11 @@ extension LocationSelectView: UITableViewDataSource, UITableViewDelegate {
         tableView.deselectRow(at: indexPath, animated: false)
         itemTappedSubject.onNext(indexPath.row)
     }
-
-    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat { 65 }
 }
 
 // MARK: - LocationResultCell
 
-private final class LocationResultCell: UITableViewCell {
+final class LocationResultCell: UITableViewCell {
     static let identifier = "LocationResultCell"
 
     private let containerView = UIView()

@@ -15,7 +15,7 @@ final class LocationSelectViewModel: BaseViewModel {
     struct Input {
         let searchText: Observable<String>
         let clearTap: Observable<Void>
-        let itemTapped: Observable<Int>     // row index
+        let itemTapped: Observable<Int>
         let ctaTapped: Observable<Void>
     }
 
@@ -46,13 +46,11 @@ final class LocationSelectViewModel: BaseViewModel {
         let locationConfirmed = PublishRelay<SelectedLocation>()
 
         // ── 검색 ────────────────────────────────────────────────────────────
-
         input.searchText
             .debounce(.milliseconds(500), scheduler: MainScheduler.instance)
             .distinctUntilChanged()
             .do(onNext: { [weak self] query in
                 guard let self else { return }
-                print("[LocationVM] Search Query: \(query)")
                 if query.isEmpty {
                     self.resetSearch()
                 } else {
@@ -69,9 +67,8 @@ final class LocationSelectViewModel: BaseViewModel {
                 self.isLoading.accept(true)
                 return NaverLocalSearchService.shared.search(
                     NaverLocalSearchRequest(query: query, display: 5, start: 1)
-                ).catch { error in
-                    print("[LocationVM] Search Error: \(error)")
-                    self.isLoading.accept(false)
+                ).catch { [weak self] _ in
+                    self?.isLoading.accept(false)
                     return .empty()
                 }
             }
@@ -80,7 +77,6 @@ final class LocationSelectViewModel: BaseViewModel {
                 self.isLoading.accept(false)
                 self.allItems.accept(response.items)
                 self.isEmptyResult.accept(response.items.isEmpty)
-                print("[LocationVM] Results Loaded: \(response.items.count) items")
             })
             .disposed(by: disposeBag)
 
@@ -90,7 +86,6 @@ final class LocationSelectViewModel: BaseViewModel {
             .disposed(by: disposeBag)
 
         // ── 선택 (토글) ──────────────────────────────────────────────────────
-
         input.itemTapped
             .withLatestFrom(selectedIndex.asObservable()) { ($0, $1) }
             .subscribe(onNext: { [weak self] tapped, current in
@@ -99,7 +94,6 @@ final class LocationSelectViewModel: BaseViewModel {
             .disposed(by: disposeBag)
 
         // ── 지도 좌표 ────────────────────────────────────────────────────────
-
         let mapCoord = Observable
             .combineLatest(selectedIndex.asObservable(), allItems.asObservable())
             .map { idx, items -> NMGLatLng? in
@@ -109,7 +103,6 @@ final class LocationSelectViewModel: BaseViewModel {
             .asDriver(onErrorJustReturn: nil)
 
         // ── CTA ─────────────────────────────────────────────────────────────
-
         let ctaEnabled = selectedIndex.map { $0 != nil }.asDriver(onErrorJustReturn: false)
         let ctaStyle = ctaEnabled.map { $0 ? GTTButtonStyle.primary : .secondary }
 
@@ -137,7 +130,6 @@ final class LocationSelectViewModel: BaseViewModel {
     // MARK: - Private Helpers
 
     private func resetSearch() {
-        print("[LocationVM] Resetting search state")
         currentQuery.accept("")
         allItems.accept([])
         selectedIndex.accept(nil)
