@@ -22,5 +22,5 @@ extension Attendance {
 }
 
 enum AttendanceStatus: Int16 {
-    case pending = 0, success = 1, late = 2, fail = 3
+    case pending = 0, success = 1, late = 2, fail = 3, failCommitted = 4
 }

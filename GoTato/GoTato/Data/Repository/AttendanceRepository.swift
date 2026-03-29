@@ -12,6 +12,7 @@ protocol AttendanceRepositoryProtocol {
     func fetchAttendances(for missionID: UUID, in month: Date) -> Single<[Attendance]>
     func fetchTodayAttendance(for missionID: UUID) -> Single<Attendance?>
     func recordAttendance(attendanceID: UUID, recordDate: Date) -> Single<Void>
+    func commitAttendance(attendanceID: UUID) -> Single<Void>
     func batchMarkFailed() -> Single<Void>
 }
 
@@ -119,6 +120,31 @@ final class AttendanceRepository: AttendanceRepositoryProtocol {
 
             #if DEBUG
             print("[DB][Attendance] ✅ recordAttendance 완료 - planDate: \(attendance.planDate!), recordDate: \(recordDate), status: \(attendance.attendanceStatus)")
+            #endif
+        }
+    }
+
+    /// 다짐하기. status를 failCommitted(4)로 저장한다.
+    func commitAttendance(attendanceID: UUID) -> Single<Void> {
+        return stack.performBackgroundTask { ctx in
+            #if DEBUG
+            print("[DB][Attendance] commitAttendance 시작 - attendanceID: \(attendanceID)")
+            #endif
+
+            let request = Attendance.fetchRequest()
+            request.predicate = NSPredicate(format: "id == %@", attendanceID as CVarArg)
+            request.fetchLimit = 1
+            guard let attendance = try ctx.fetch(request).first else {
+                #if DEBUG
+                print("[DB][Attendance] ❌ commitAttendance 실패 - attendanceID \(attendanceID) 찾을 수 없음")
+                #endif
+                throw RepositoryError.notFound
+            }
+
+            attendance.attendanceStatus = .failCommitted
+
+            #if DEBUG
+            print("[DB][Attendance] ✅ commitAttendance 완료 - attendanceID: \(attendanceID)")
             #endif
         }
     }

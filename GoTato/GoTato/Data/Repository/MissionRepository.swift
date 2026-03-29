@@ -10,6 +10,7 @@ import RxSwift
 protocol MissionRepositoryProtocol {
     func fetchAllMissions() -> Single<[Mission]>
     func fetchActiveMissions() -> Single<[Mission]>
+    func fetchTodayActiveMissions() -> Single<[Mission]>
     func createMission(title: String, deadline: Date, startDate: Date, endDate: Date, location: Location) -> Single<Void>
     func updateDeadline(missionID: UUID, newDeadline: Date) -> Single<Void>
     func deleteMission(missionID: UUID) -> Single<Void>
@@ -63,6 +64,34 @@ final class MissionRepository: MissionRepositoryProtocol {
             } catch {
                 #if DEBUG
                 print("[DB][Mission] fetchActiveMissions 실패: \(error)")
+                #endif
+                observer(.failure(error))
+            }
+            return Disposables.create()
+        }
+    }
+
+    /// 오늘 활성 미션: startDate <= todayEnd AND endDate >= todayStart
+    func fetchTodayActiveMissions() -> Single<[Mission]> {
+        let context = stack.viewContext
+        let (todayStart, todayEnd) = GTTDateService.shared.todayBounds()
+        return Single.create { observer in
+            let request = Mission.fetchRequest()
+            request.predicate = NSPredicate(
+                format: "startDate <= %@ AND endDate >= %@",
+                todayEnd as CVarArg,
+                todayStart as CVarArg
+            )
+            request.sortDescriptors = [NSSortDescriptor(key: "deadline", ascending: true)]
+            do {
+                let results = try context.fetch(request)
+                #if DEBUG
+                print("[DB][Mission] fetchTodayActiveMissions → \(results.count)개")
+                #endif
+                observer(.success(results))
+            } catch {
+                #if DEBUG
+                print("[DB][Mission] fetchTodayActiveMissions 실패: \(error)")
                 #endif
                 observer(.failure(error))
             }
