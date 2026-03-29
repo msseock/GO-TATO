@@ -31,8 +31,7 @@ private enum DayStatus {
         switch rawValue {
         case 1:  self = .success
         case 2:  self = .late
-        case 3:  self = .fail
-        case 4:  self = .today
+        case 3, 4: self = .fail  // 3=fail, 4=failCommitted (동일 시각)
         default: self = .pending
         }
     }
@@ -82,6 +81,8 @@ private final class CalendarDayCell: FSCalendarCell {
         // FSCalendar은 titleLabel을 셀 상단 2/3 영역에 배치하므로 bgView와 centerY가 맞지 않음.
         // bgView의 y·height와 동일하게 덮어써서 정렬.
         titleLabel.frame = CGRect(x: 0, y: top, width: bounds.width, height: h)
+        // appearance 시스템이 폰트를 덮어쓸 수 있으므로 layoutSubviews에서 직접 설정
+        titleLabel.font = isSelected ? GTTFont.calendarDaySelected.font : GTTFont.calendarDay.font
     }
 }
 
@@ -218,11 +219,14 @@ final class CalendarSectionView: UIView {
 
     // MARK: - Properties
 
-    /// key: startOfDay 기준 Date, value: Attendance.status (Int16)
-    private var statusMap: [Date: Int16] = [:]
+    /// key: startOfDay 기준 Date, value: 해당 날짜의 Attendance.status 목록 (다중 미션 지원)
+    private var statusMap: [Date: [Int16]] = [:]
 
     /// 부모 VC에서 새 달 데이터를 로드할 때 사용
     var onMonthChanged: ((Date) -> Void)?
+
+    /// 날짜 탭 시 호출. date는 탭된 날짜 (startOfDay 아님)
+    var onDateSelected: ((Date) -> Void)?
 
     // MARK: - UI Components
 
@@ -247,12 +251,16 @@ final class CalendarSectionView: UIView {
 
     // MARK: - Public API
 
-    /// 날짜별 출석 status 값을 주입하면 셀 색상이 업데이트됩니다.
-    func configure(with statuses: [Date: Int16]) {
+    /// 날짜별 출석 status 목록을 주입하면 셀 색상이 업데이트됩니다.
+    /// 다중 미션을 지원하기 위해 날짜당 [Int16] 배열을 받습니다.
+    func configure(with statuses: [Date: [Int16]]) {
         let cal = Calendar.current
-        statusMap = Dictionary(
-            uniqueKeysWithValues: statuses.map { (cal.startOfDay(for: $0.key), $0.value) }
-        )
+        var normalized: [Date: [Int16]] = [:]
+        for (date, values) in statuses {
+            let key = cal.startOfDay(for: date)
+            normalized[key, default: []].append(contentsOf: values)
+        }
+        statusMap = normalized
         updateHeaderLabels(for: fsCalendar.currentPage)
         fsCalendar.reloadData()
     }
@@ -360,8 +368,8 @@ final class CalendarSectionView: UIView {
         fsCalendar.locale       = Locale(identifier: "ko_KR")
         fsCalendar.firstWeekday = 1   // 일요일 시작
 
-        fsCalendar.scrollEnabled   = false
-        fsCalendar.allowsSelection = false
+        fsCalendar.scrollEnabled   = true
+        fsCalendar.allowsSelection = true
         fsCalendar.placeholderType = .none
 
         // custom cell이 배경을 담당 → FSCalendar 기본 shape 투명 처리
@@ -397,9 +405,9 @@ final class CalendarSectionView: UIView {
             guard let self else { return }
             let comps = Calendar.current.dateComponents([.year, .month], from: selectedDate)
             guard let targetDate = Calendar.current.date(from: comps) else { return }
+            // setCurrentPage가 calendarCurrentPageDidChange를 트리거하므로
+            // onMonthChanged는 거기서 한 번만 발화됨
             self.fsCalendar.setCurrentPage(targetDate, animated: true)
-            self.updateHeaderLabels(for: targetDate)
-            self.onMonthChanged?(targetDate)
         }
 
         sheet.modalPresentationStyle = .pageSheet
@@ -437,6 +445,17 @@ extension CalendarSectionView: FSCalendarDataSource {
 extension CalendarSectionView: FSCalendarDelegate {
     func calendarCurrentPageDidChange(_ calendar: FSCalendar) {
         updateHeaderLabels(for: calendar.currentPage)
+        onMonthChanged?(calendar.currentPage)
+    }
+
+    func calendar(_ calendar: FSCalendar, didSelect date: Date, at monthPosition: FSCalendarMonthPosition) {
+        guard monthPosition == .current else { return }
+        calendar.reloadData()
+        onDateSelected?(date)
+    }
+
+    func calendar(_ calendar: FSCalendar, didDeselect date: Date, at monthPosition: FSCalendarMonthPosition) {
+        calendar.reloadData()
     }
 }
 
@@ -451,6 +470,10 @@ extension CalendarSectionView: FSCalendarDelegateAppearance {
         dayStatus(for: date).textColor
     }
 
+    func calendar(_ calendar: FSCalendar, appearance: FSCalendarAppearance, titleSelectionColorFor date: Date) -> UIColor? {
+        dayStatus(for: date).textColor
+    }
+
     func calendar(_ calendar: FSCalendar, appearance: FSCalendarAppearance, borderDefaultColorFor date: Date) -> UIColor? {
         .clear
     }
@@ -458,7 +481,26 @@ extension CalendarSectionView: FSCalendarDelegateAppearance {
     // MARK: - Private Helper
 
     private func dayStatus(for date: Date) -> DayStatus {
-        let key = Calendar.current.startOfDay(for: date)
-        return DayStatus(rawValue: statusMap[key])
+        let cal = Calendar.current
+        let key = cal.startOfDay(for: date)
+
+        // 오늘은 항상 파랑
+        if cal.isDateInToday(date) { return .today }
+
+        // 미래는 기본(색 없음)
+        if key > cal.startOfDay(for: Date()) { return .pending }
+
+        // 과거: 해당 날짜의 status 목록을 집계
+        let statuses = statusMap[key] ?? []
+        if statuses.isEmpty { return .pending }
+
+        let hasSuccess = statuses.contains(1)
+        let hasLate    = statuses.contains(2)
+        let hasFail    = statuses.contains(where: { $0 == 3 || $0 == 4 })
+
+        if hasSuccess && (hasLate || hasFail) { return .late }   // 혼재 → 노랑
+        if hasSuccess { return .success }                         // 전체 성공 → 초록
+        if hasLate && !hasFail { return .late }                   // 전체 지각 → 노랑
+        return .fail                                              // 전체 실패 → 빨강
     }
 }

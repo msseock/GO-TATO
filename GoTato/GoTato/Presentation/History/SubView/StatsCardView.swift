@@ -102,6 +102,10 @@ final class StatsCardView: UIView {
     // MARK: - Configure
 
     private func configure(attendanceRate: Int, lateCount: Int, savedMinutes: Int) {
+        update(attendanceRate: attendanceRate, lateCount: lateCount, savedMinutes: savedMinutes)
+    }
+
+    func update(attendanceRate: Int, lateCount: Int, savedMinutes: Int) {
         attendanceItem.setValue("\(attendanceRate)%")
         lateItem.setValue("\(lateCount)회")
         savedTimeItem.setValue("\(savedMinutes)분")

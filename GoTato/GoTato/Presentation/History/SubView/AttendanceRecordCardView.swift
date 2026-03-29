@@ -11,11 +11,13 @@ import SnapKit
 enum AttendanceRecordState {
     /// 당일 미션 없음
     case noMission
-    /// 출근 성공. minutesDiff: 음수 = N분 일찍, 양수 = N분 지각 후 도착
+    /// 출근 성공 (status=1)
     case success(locationName: String, minutesDiff: Int)
-    /// 출근 진행 중 (미도착)
+    /// 지각 후 도착 (status=2)
+    case late(locationName: String, minutesDiff: Int)
+    /// 출근 진행 중 (status=0, 오늘만 가능)
     case inProgress(locationName: String)
-    /// 출근 실패
+    /// 출근 실패 (status=3, 4)
     case failure(locationName: String)
 
     var caption: String {
@@ -23,16 +25,15 @@ enum AttendanceRecordState {
         case .noMission:
             return ""
         case .success(_, let diff):
-            if diff < 0 {
-                return "\(-diff)분 일찍 도착!"
-            } else if diff == 0 {
-                return "세이프!"
-            } else {
-                let h = diff / 60
-                let m = diff % 60
-                let timeText = h > 0 ? "\(h)시간 \(m)분" : "\(m)분"
-                return timeText + " 지각이지만, 도착!"
-            }
+            // status=1: minutesDiff = planDate - recordDate → 양수 (일찍 도착한 분 수)
+            return "\(diff)분 일찍 도착!"
+        case .late(_, let diff):
+            // status=2: recordDate >= planDate → diff >= 0
+            if diff == 0 { return "딱 맞게 도착!" }
+            let h = diff / 60
+            let m = diff % 60
+            let timeText = h > 0 ? "\(h)시간 \(m)분" : "\(m)분"
+            return timeText + " 지각이지만, 도착!"
         case .inProgress:
             return "갈 준비 중"
         case .failure:
@@ -44,8 +45,8 @@ enum AttendanceRecordState {
         switch self {
         case .noMission:
             return nil
-            
         case .success(let name, _),
+             .late(let name, _),
              .inProgress(let name),
              .failure(let name):
             return name
@@ -54,19 +55,27 @@ enum AttendanceRecordState {
 
     fileprivate var image: UIImage? {
         switch self {
-        case .noMission:  return UIImage(named: "PotatoSad")
-        case .success:    return UIImage(named: "PotatoNametag")
-        case .inProgress: return UIImage(named: "PotatoDefault")
-        case .failure:    return UIImage(named: "PotatoSprout")
+        case .noMission:
+            return UIImage(named: "PotatoSad")
+        case .success, .late:
+            return UIImage(named: "PotatoNametag")
+        case .inProgress:
+            return UIImage(named: "PotatoDefault")
+        case .failure:
+            return UIImage(named: "PotatoSprout")
         }
     }
 
     fileprivate var borderColor: UIColor {
         switch self {
-        case .noMission:  return GTTColor.divider
-        case .success:    return GTTColor.successBg
-        case .inProgress: return GTTColor.warningBg
-        case .failure:    return GTTColor.errorLight
+        case .noMission:
+            return GTTColor.divider
+        case .success, .late:
+            return GTTColor.successBg
+        case .inProgress:
+            return GTTColor.warningBg
+        case .failure:
+            return GTTColor.errorLight
         }
     }
 }
@@ -170,7 +179,7 @@ final class AttendanceRecordCardView: UIView {
             messageLabel.isHidden = false
             textStack.isHidden = true
             messageLabel.text = "오늘의 미션이 없어요.\n미션을 만들어서 확인해보세요"
-        case .success, .inProgress, .failure:
+        case .success, .late, .inProgress, .failure:
             messageLabel.isHidden = true
             textStack.isHidden = false
             locationLabel.text = state.locationName
