@@ -19,7 +19,7 @@ private enum Layout {
     static let buttonBottom: CGFloat = 24
     static let potatoTop: CGFloat = 120
     static let potatoSize: CGFloat = 220
-    static let cardHeight: CGFloat = 340
+    static let cardHeight: CGFloat = 300
 }
 
 // MARK: - LocationPermissionRequiredView
@@ -80,7 +80,7 @@ final class LocationPermissionRequiredView: UIView {
         }
         
         potatoImageView.snp.makeConstraints {
-            $0.top.equalTo(settingsButton.snp.bottom).offset(20)
+            $0.top.equalTo(settingsButton.snp.bottom)
             $0.centerX.equalToSuperview()
             $0.width.height.equalTo(Layout.potatoSize)
         }
