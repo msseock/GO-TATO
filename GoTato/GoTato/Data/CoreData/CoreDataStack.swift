@@ -29,6 +29,7 @@ final class CoreDataStack {
 
     /// 모든 쓰기 작업의 공통 진입점.
     /// 블록은 새 백그라운드 컨텍스트에서 실행되며 성공 시 자동 저장된다.
+    /// 결과는 항상 main thread에서 deliver된다.
     func performBackgroundTask<T>(_ block: @escaping (NSManagedObjectContext) throws -> T) -> Single<T> {
         return Single.create { [container] observer in
             container.performBackgroundTask { context in
@@ -43,6 +44,7 @@ final class CoreDataStack {
             }
             return Disposables.create()
         }
+        .observe(on: MainScheduler.instance)
     }
 
     func saveViewContext() {
