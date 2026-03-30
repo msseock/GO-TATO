@@ -12,6 +12,7 @@ struct DashboardMissionState {
     let mainActionState: MainActionState
     let bottomButtonState: BottomButtonState
     let attendanceID: UUID?
+    let missionID: UUID?
 }
 
 enum MainActionState {

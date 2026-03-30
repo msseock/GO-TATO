@@ -15,13 +15,22 @@ final class DashboardPageContentViewController: UIViewController {
     var onRefreshPulled: (() -> Void)?
     var onRefreshTapped: (() -> Void)?
     var onSetMissionTapped: (() -> Void)?
+    var onMissionDetailTapped: (() -> Void)?
 
     // MARK: - UI
 
     private let scrollView = UIScrollView()
     private let contentStack = UIStackView()
+    private let headerView = UIView()
     private let titleLabel = UILabel()
     private let deadlineLabel = UILabel()
+    private let detailChevronButton: UIButton = {
+        let btn = UIButton(type: .system)
+        let config = UIImage.SymbolConfiguration(pointSize: 14, weight: .semibold)
+        btn.setImage(UIImage(systemName: "chevron.right", withConfiguration: config), for: .normal)
+        btn.tintColor = GTTColor.textSubtle
+        return btn
+    }()
     private let messageCardView = DashBoardMessageCardView()
     private let mainActionContainer = UIView()
     private let bottomButtonContainer = UIView()
@@ -77,8 +86,10 @@ final class DashboardPageContentViewController: UIViewController {
     private func setupHierarchy() {
         view.addSubview(scrollView)
         scrollView.addSubview(contentStack)
-        contentStack.addArrangedSubview(titleLabel)
-        contentStack.addArrangedSubview(deadlineLabel)
+        headerView.addSubview(titleLabel)
+        headerView.addSubview(deadlineLabel)
+        headerView.addSubview(detailChevronButton)
+        contentStack.addArrangedSubview(headerView)
         contentStack.addArrangedSubview(messageCardView)
         contentStack.addArrangedSubview(mainActionContainer)
         contentStack.addArrangedSubview(bottomButtonContainer)
@@ -92,6 +103,23 @@ final class DashboardPageContentViewController: UIViewController {
         contentStack.snp.makeConstraints {
             $0.edges.equalToSuperview().inset(UIEdgeInsets(top: 16, left: 20, bottom: 32, right: 20))
             $0.width.equalTo(scrollView).offset(-40)
+        }
+
+        titleLabel.snp.makeConstraints {
+            $0.top.leading.equalToSuperview()
+            $0.height.greaterThanOrEqualTo(32)
+        }
+        
+        detailChevronButton.snp.makeConstraints {
+            $0.leading.equalTo(titleLabel.snp.trailing)
+            $0.centerY.equalTo(titleLabel)
+            $0.width.height.equalTo(32)
+        }
+
+        deadlineLabel.snp.makeConstraints {
+            $0.top.equalTo(titleLabel.snp.bottom).offset(4)
+            $0.leading.equalToSuperview()
+            $0.bottom.equalToSuperview()
         }
 
         bottomButtonContainer.snp.makeConstraints {
@@ -110,6 +138,8 @@ final class DashboardPageContentViewController: UIViewController {
         deadlineLabel.textColor = GTTColor.textSecondary
         deadlineLabel.textAlignment = .left
 
+        detailChevronButton.addTarget(self, action: #selector(didTapDetailChevron), for: .touchUpInside)
+
         scrollView.alwaysBounceVertical = true
         scrollView.showsVerticalScrollIndicator = false
         scrollView.refreshControl = refreshControl
@@ -125,6 +155,10 @@ final class DashboardPageContentViewController: UIViewController {
 
     @objc private func handleRefresh() {
         onRefreshPulled?()
+    }
+
+    @objc private func didTapDetailChevron() {
+        onMissionDetailTapped?()
     }
 
     // MARK: - State Application

@@ -135,7 +135,8 @@ final class DashboardViewModel: BaseViewModel {
                         messageCardState: s.messageCardState,
                         mainActionState: s.mainActionState,
                         bottomButtonState: .checkIn(isEnabled: false),
-                        attendanceID: s.attendanceID
+                        attendanceID: s.attendanceID,
+                        missionID: s.missionID
                     )
                     self.statesRelay.accept(states)
                 }
@@ -174,7 +175,8 @@ final class DashboardViewModel: BaseViewModel {
                         messageCardState: s.messageCardState,
                         mainActionState: .failedCommitted,
                         bottomButtonState: .hidden,
-                        attendanceID: s.attendanceID
+                        attendanceID: s.attendanceID,
+                        missionID: s.missionID
                     )
                     self.statesRelay.accept(states)
                 }
@@ -200,6 +202,14 @@ final class DashboardViewModel: BaseViewModel {
             missionStates: statesRelay.asDriver(),
             isRefreshing: isRefreshingRelay.asDriver()
         )
+    }
+
+    // MARK: - Public helpers
+
+    func missionID(at index: Int) -> UUID? {
+        let states = statesRelay.value
+        guard index < states.count else { return nil }
+        return states[index].missionID
     }
 
     // MARK: - Private helpers
@@ -263,6 +273,7 @@ final class DashboardViewModel: BaseViewModel {
         let threeHoursAfterPlan = planDate.addingTimeInterval(3 * 3600)
         let locationName = mission.location?.name ?? ""
         let attendanceID = attendance.id
+        let missionID = mission.id
         let deadlineStr = formatDeadline(planDate)
 
         let authStatus = locationService.authorizationStatus.value
@@ -276,7 +287,8 @@ final class DashboardViewModel: BaseViewModel {
                 messageCardState: .failed,
                 mainActionState: .failedCommitted,
                 bottomButtonState: .hidden,
-                attendanceID: attendanceID
+                attendanceID: attendanceID,
+                missionID: missionID
             )
         }
 
@@ -290,7 +302,8 @@ final class DashboardViewModel: BaseViewModel {
                     messageCardState: .successOnTime(earlyMinutes: earlyMinutes),
                     mainActionState: .success(recordDate: recordDate, locationName: locationName),
                     bottomButtonState: .hidden,
-                    attendanceID: attendanceID
+                    attendanceID: attendanceID,
+                    missionID: missionID
                 )
             } else {
                 // 지각출근 성공 (1.4)
@@ -301,7 +314,8 @@ final class DashboardViewModel: BaseViewModel {
                     messageCardState: .successLate(lateTime: lateStr),
                     mainActionState: .success(recordDate: recordDate, locationName: locationName),
                     bottomButtonState: .hidden,
-                    attendanceID: attendanceID
+                    attendanceID: attendanceID,
+                    missionID: missionID
                 )
             }
         } else if now >= threeHoursAfterPlan {
@@ -312,7 +326,8 @@ final class DashboardViewModel: BaseViewModel {
                 messageCardState: .failed,
                 mainActionState: .failed,
                 bottomButtonState: .commit,
-                attendanceID: attendanceID
+                attendanceID: attendanceID,
+                missionID: missionID
             )
         } else if now >= planDate {
             // 지각출근중 (1.2)
@@ -324,7 +339,8 @@ final class DashboardViewModel: BaseViewModel {
                     messageCardState: .commutingLate(lateTime: lateStr, location: locationName),
                     mainActionState: .locationPermissionDenied,
                     bottomButtonState: .checkIn(isEnabled: false),
-                    attendanceID: attendanceID
+                    attendanceID: attendanceID,
+                    missionID: missionID
                 )
             }
             let ongoing = buildOngoingState(mission: mission)
@@ -334,7 +350,8 @@ final class DashboardViewModel: BaseViewModel {
                 messageCardState: .commutingLate(lateTime: lateStr, location: locationName),
                 mainActionState: .ongoing(ongoing.cardState),
                 bottomButtonState: .checkIn(isEnabled: ongoing.isNear),
-                attendanceID: attendanceID
+                attendanceID: attendanceID,
+                missionID: missionID
             )
         } else {
             // 정상출근중 (1.1)
@@ -347,7 +364,8 @@ final class DashboardViewModel: BaseViewModel {
                     messageCardState: .commutingOnTime(leftTime: leftStr, time: planTimeStr, location: locationName),
                     mainActionState: .locationPermissionDenied,
                     bottomButtonState: .checkIn(isEnabled: false),
-                    attendanceID: attendanceID
+                    attendanceID: attendanceID,
+                    missionID: missionID
                 )
             }
             let ongoing = buildOngoingState(mission: mission)
@@ -357,7 +375,8 @@ final class DashboardViewModel: BaseViewModel {
                 messageCardState: .commutingOnTime(leftTime: leftStr, time: planTimeStr, location: locationName),
                 mainActionState: .ongoing(ongoing.cardState),
                 bottomButtonState: .checkIn(isEnabled: ongoing.isNear),
-                attendanceID: attendanceID
+                attendanceID: attendanceID,
+                missionID: missionID
             )
         }
     }

@@ -241,6 +241,16 @@ final class DashboardViewController: BaseViewController {
         vc.onSetMissionTapped = { [weak self] in
             self?.presentMissionSetup()
         }
+        vc.onMissionDetailTapped = { [weak self] in
+            guard let missionID = self?.viewModel.missionID(at: index) else { return }
+            self?.navigateToMissionDetail(missionID: missionID)
+        }
+    }
+
+    private func navigateToMissionDetail(missionID: UUID) {
+        let detailVC = MissionDetailViewController(missionID: missionID)
+        detailVC.delegate = self
+        navigationController?.pushViewController(detailVC, animated: true)
     }
 
     // MARK: - Actions
@@ -312,6 +322,18 @@ extension DashboardViewController: UIPageViewControllerDelegate {
 extension DashboardViewController: MissionSetupDelegate {
     func missionSetupDidComplete(_ vc: MissionSetupViewController) {
         missionAddedRelay.accept(())
+    }
+}
+
+// MARK: - MissionDetailDelegate
+
+extension DashboardViewController: MissionDetailDelegate {
+    func missionDetailDidUpdate() {
+        viewWillAppearRelay.accept(())
+    }
+
+    func missionDetailDidDelete() {
+        viewWillAppearRelay.accept(())
     }
 }
 
