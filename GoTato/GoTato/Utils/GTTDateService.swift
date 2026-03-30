@@ -72,4 +72,12 @@ final class GTTDateService {
         let end   = calendar.date(byAdding: .day, value: 1, to: start)!
         return (start, end)
     }
+
+    /// Date를 '3월 30일 월요일' 형식의 한글 문자열로 변환
+    func formatToKoreanFullDate(from date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ko_KR")
+        formatter.dateFormat = "M월 d일 EEEE"
+        return formatter.string(from: date)
+    }
 }

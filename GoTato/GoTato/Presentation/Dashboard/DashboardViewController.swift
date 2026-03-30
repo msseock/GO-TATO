@@ -28,6 +28,7 @@ final class DashboardViewController: BaseViewController {
 
     // MARK: - No-mission view
 
+    private let customHeaderView = UIView()
     private let noMissionView = UIView()
     private let noMissionMessageCard = DashBoardMessageCardView()
     private let setMissionButtonView = SetMissionButtonView()
@@ -50,12 +51,21 @@ final class DashboardViewController: BaseViewController {
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        navigationController?.setNavigationBarHidden(true, animated: animated)
         viewWillAppearRelay.accept(())
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        navigationController?.setNavigationBarHidden(false, animated: animated)
     }
 
     // MARK: - BaseViewController
 
     override func configureHierarchy() {
+        // Custom header
+        view.addSubview(customHeaderView)
+
         // No-mission view
         view.addSubview(noMissionView)
         noMissionView.addSubview(noMissionMessageCard)
@@ -73,8 +83,14 @@ final class DashboardViewController: BaseViewController {
     }
 
     override func configureLayout() {
+        customHeaderView.snp.makeConstraints {
+            $0.top.equalTo(view.safeAreaLayoutGuide).offset(8)
+            $0.leading.trailing.equalToSuperview().inset(20)
+            $0.height.equalTo(40)
+        }
+
         noMissionView.snp.makeConstraints {
-            $0.top.equalTo(view.safeAreaLayoutGuide).offset(16)
+            $0.top.equalTo(customHeaderView.snp.bottom).offset(8)
             $0.leading.trailing.equalToSuperview().inset(20)
             $0.bottom.lessThanOrEqualTo(view.safeAreaLayoutGuide).inset(16)
         }
@@ -89,7 +105,7 @@ final class DashboardViewController: BaseViewController {
         }
 
         pageVC.view.snp.makeConstraints {
-            $0.top.equalTo(view.safeAreaLayoutGuide)
+            $0.top.equalTo(customHeaderView.snp.bottom)
             $0.leading.trailing.bottom.equalToSuperview()
         }
 
@@ -109,6 +125,34 @@ final class DashboardViewController: BaseViewController {
         pageControl.pageIndicatorTintColor = GTTColor.divider
         pageControl.currentPageIndicatorTintColor = GTTColor.brand
         pageControl.addTarget(self, action: #selector(didChangePageControlValue), for: .valueChanged)
+
+        setupCustomHeader()
+    }
+
+    private func setupCustomHeader() {
+        let calendarIcon = UIImageView(image: UIImage(systemName: "calendar"))
+        calendarIcon.tintColor = GTTColor.textSubtle
+        calendarIcon.contentMode = .scaleAspectFit
+        calendarIcon.snp.makeConstraints {
+            $0.size.equalTo(18)
+        }
+
+        let dateString = GTTDateService.shared.formatToKoreanFullDate(from: Date())
+        let dateLabel = UILabel()
+        dateLabel.text = dateString
+        dateLabel.font = GTTFont.bodySecondary.font
+        dateLabel.textColor = GTTColor.textSubtle
+
+        let stackView = UIStackView(arrangedSubviews: [calendarIcon, dateLabel])
+        stackView.axis = .horizontal
+        stackView.spacing = 6
+        stackView.alignment = .center
+
+        customHeaderView.addSubview(stackView)
+        stackView.snp.makeConstraints {
+            $0.leading.equalToSuperview()
+            $0.bottom.equalToSuperview().inset(8)
+        }
     }
 
     override func bind() {
