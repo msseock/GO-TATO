@@ -7,53 +7,99 @@
 
 import UIKit
 import SnapKit
+import RxSwift
+import RxCocoa
 
 final class OnboardViewController: BaseViewController {
 
+    // MARK: - Properties
+
+    private let viewModel = OnboardViewModel()
+    private let disposeBag = DisposeBag()
+
+    // MARK: - UI
+
     private let titleLabel = UILabel()
-    private let missionButton = UIButton(type: .system)
-    private let browseButton = UIButton(type: .system)
+    private let subtitleLabel = UILabel()
+    private let potatoImageView = UIImageView()
+    private let missionButton = GTTMainButton(title: "미션 만들기", style: .primary)
+    private let browseButton = GTTMainButton(title: "둘러보기", style: .secondary)
+
+    // MARK: - Configure
 
     override func configureHierarchy() {
         view.addSubview(titleLabel)
+        view.addSubview(subtitleLabel)
+        view.addSubview(potatoImageView)
         view.addSubview(missionButton)
         view.addSubview(browseButton)
     }
 
     override func configureLayout() {
         titleLabel.snp.makeConstraints { make in
-            make.center.equalToSuperview()
-        }
-        missionButton.snp.makeConstraints { make in
-            make.top.equalTo(titleLabel.snp.bottom).offset(32)
+            make.top.equalTo(view.safeAreaLayoutGuide).offset(60)
             make.centerX.equalToSuperview()
         }
+
+        potatoImageView.snp.makeConstraints { make in
+            make.top.equalTo(titleLabel.snp.bottom).offset(30)
+            make.centerX.equalToSuperview()
+            make.width.height.equalTo(200)
+        }
+
+        subtitleLabel.snp.makeConstraints { make in
+            make.top.equalTo(potatoImageView.snp.bottom).offset(45)
+            make.centerX.equalToSuperview()
+        }
+
+        missionButton.snp.makeConstraints { make in
+            make.top.equalTo(subtitleLabel.snp.bottom).offset(24)
+            make.horizontalEdges.equalToSuperview().inset(20)
+        }
+
         browseButton.snp.makeConstraints { make in
             make.top.equalTo(missionButton.snp.bottom).offset(16)
-            make.centerX.equalToSuperview()
+            make.horizontalEdges.equalToSuperview().inset(20)
         }
     }
 
     override func configureView() {
-        titleLabel.text = "일단감자"
-        titleLabel.font = .systemFont(ofSize: 32, weight: .bold)
+        view.backgroundColor = GTTColor.bgPrimary
 
-        missionButton.setTitle("미션 만들기", for: .normal)
-        missionButton.addTarget(self, action: #selector(didTapMission), for: .touchUpInside)
+        titleLabel.text = "반갑습니다!"
+        titleLabel.font = GTTFont.heroTitle.font
+        titleLabel.textColor = GTTColor.textPrimary
 
-        browseButton.setTitle("둘러보기", for: .normal)
-        browseButton.addTarget(self, action: #selector(didTapBrowse), for: .touchUpInside)
+        subtitleLabel.text = "설레는 내일 아침,\n감자와 함께 미션을 시작해볼까요?"
+        subtitleLabel.font = GTTFont.body.font
+        subtitleLabel.textColor = GTTColor.textSecondary
+        subtitleLabel.numberOfLines = 0
+        subtitleLabel.textAlignment = .center
+
+        potatoImageView.image = UIImage(named: "PotatoSparkle")
+        potatoImageView.contentMode = .scaleAspectFit
     }
 
-    @objc private func didTapMission() {
-        let vc = MissionSetupViewController(isFromOnboarding: true)
-        navigationController?.pushViewController(vc, animated: true)
-    }
+    override func bind() {
+        let input = OnboardViewModel.Input(
+            missionTap: missionButton.rx.controlEvent(.touchUpInside).map { },
+            browseTap: browseButton.rx.controlEvent(.touchUpInside).map { }
+        )
+        let output = viewModel.transform(input: input)
 
-    @objc private func didTapBrowse() {
-        UserDefaults.standard.set(true, forKey: "hasCompletedOnboarding")
-        guard let window = view.window else { return }
-        window.rootViewController = MainTabBarController()
-        UIView.transition(with: window, duration: 0.3, options: .transitionCrossDissolve, animations: nil)
+        output.navigateToMission
+            .emit(onNext: { [weak self] in
+                let vc = MissionSetupViewController(isFromOnboarding: true)
+                self?.navigationController?.pushViewController(vc, animated: true)
+            })
+            .disposed(by: disposeBag)
+
+        output.navigateToDashboard
+            .emit(onNext: { [weak self] in
+                guard let window = self?.view.window else { return }
+                window.rootViewController = MainTabBarController()
+                UIView.transition(with: window, duration: 0.3, options: .transitionCrossDissolve, animations: nil)
+            })
+            .disposed(by: disposeBag)
     }
 }
