@@ -281,7 +281,7 @@ final class RoutineSelectViewController: BaseViewController {
     }
 
     private func handleTimeCardTap() {
-        let sheet = TimePickerSheetViewController(initial: currentTime)
+        let sheet = GTTTimePickerSheetViewController(initialDate: currentTime, minuteInterval: 5)
         sheet.onConfirm = { [weak self] selected in
             self?.timeSubject.onNext(selected)
         }
@@ -462,57 +462,6 @@ private final class DateCard: UIView {
 }
 
 // MARK: - Picker View Controllers
-
-private final class TimePickerSheetViewController: UIViewController {
-
-    var onConfirm: ((Date) -> Void)?
-
-    private let timePicker = UIDatePicker()
-    private let confirmButton = GTTMainButton(title: "확인", icon: UIImage(systemName: "checkmark"), style: .primary)
-
-    init(initial: Date) {
-        super.init(nibName: nil, bundle: nil)
-        timePicker.datePickerMode = .time
-        timePicker.preferredDatePickerStyle = .wheels
-        timePicker.locale = Locale(identifier: "ko_KR")
-        timePicker.minuteInterval = 5
-        timePicker.date = initial
-
-        modalPresentationStyle = .pageSheet
-        if let sheet = sheetPresentationController {
-            sheet.detents = [.medium()]
-            sheet.prefersGrabberVisible = true
-            sheet.preferredCornerRadius = 20
-        }
-    }
-
-    required init?(coder: NSCoder) { fatalError() }
-
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        view.backgroundColor = GTTColor.white
-
-        view.addSubview(timePicker)
-        view.addSubview(confirmButton)
-
-        timePicker.snp.makeConstraints { make in
-            make.top.equalTo(view.safeAreaLayoutGuide).offset(8)
-            make.leading.trailing.equalToSuperview().inset(16)
-        }
-
-        confirmButton.snp.makeConstraints { make in
-            make.top.equalTo(timePicker.snp.bottom).offset(16)
-            make.leading.trailing.equalToSuperview().inset(24)
-            make.height.equalTo(52)
-        }
-
-        confirmButton.onTap = { [weak self] in
-            guard let self else { return }
-            self.onConfirm?(self.timePicker.date)
-            self.dismiss(animated: true)
-        }
-    }
-}
 
 private final class DatePickerSheetViewController: UIViewController {
 
