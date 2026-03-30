@@ -131,6 +131,8 @@ final class HistoryViewModel: BaseViewModel {
             .map { (attendances, selected) -> (title: String, states: [AttendanceRecordState]) in
                 let cal = Calendar.current
                 let selectedDay = cal.startOfDay(for: selected)
+                let todayDay    = cal.startOfDay(for: Date())
+                let isTodayOrFuture = selectedDay >= todayDay
 
                 let title: String
                 if cal.isDateInToday(selected) {
@@ -150,13 +152,12 @@ final class HistoryViewModel: BaseViewModel {
                     return (title, [.noMission])
                 }
 
-                let isToday = cal.isDateInToday(selected)
                 let states: [AttendanceRecordState] = dayAttendances.map { attendance in
                     let locationName = attendance.mission?.location?.name ?? ""
                     switch attendance.attendanceStatus {
                     case .pending:
-                        // 과거 날짜에는 inProgress 미표시 → failure로 처리
-                        return isToday
+                        // 오늘 혹은 미래 날짜에는 inProgress 표시
+                        return isTodayOrFuture
                             ? .inProgress(locationName: locationName)
                             : .failure(locationName: locationName)
                     case .success:

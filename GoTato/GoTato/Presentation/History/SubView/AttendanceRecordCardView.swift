@@ -15,7 +15,7 @@ enum AttendanceRecordState {
     case success(locationName: String, minutesDiff: Int)
     /// 지각 후 도착 (status=2)
     case late(locationName: String, minutesDiff: Int)
-    /// 출근 진행 중 (status=0, 오늘만 가능)
+    /// 출근 진행 중 (status=0, 오늘 또는 미래 날짜)
     case inProgress(locationName: String)
     /// 출근 실패 (status=3, 4)
     case failure(locationName: String)
