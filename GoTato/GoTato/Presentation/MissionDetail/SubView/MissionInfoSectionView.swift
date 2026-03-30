@@ -85,7 +85,8 @@ final class MissionInfoSectionView: UIView {
         }
 
         let timeFmt = DateFormatter()
-        timeFmt.dateFormat = "HH:mm"
+        timeFmt.locale = Locale(identifier: "ko_KR")
+        timeFmt.dateFormat = "a h:mm"
         deadlineRow.configure(text: timeFmt.string(from: deadline))
     }
 }
