@@ -95,13 +95,24 @@ private enum Layout {
 
 final class AttendanceRecordCardView: UIView {
 
+    // MARK: - Callback
+
+    var onDetailTapped: (() -> Void)?
+
     // MARK: - UI Components
 
-    private let potatoImageView = UIImageView()
-    private let messageLabel    = UILabel()
-    private let textStack       = UIStackView()
-    private let locationLabel   = UILabel()
-    private let captionLabel    = UILabel()
+    private let potatoImageView   = UIImageView()
+    private let messageLabel      = UILabel()
+    private let textStack         = UIStackView()
+    private let locationLabel     = UILabel()
+    private let captionLabel      = UILabel()
+    private let detailChevronButton: UIButton = {
+        let btn = UIButton(type: .system)
+        let config = UIImage.SymbolConfiguration(pointSize: 12, weight: .semibold)
+        btn.setImage(UIImage(systemName: "chevron.right", withConfiguration: config), for: .normal)
+        btn.tintColor = GTTColor.textSubtle
+        return btn
+    }()
 
     // MARK: - Init
 
@@ -124,6 +135,7 @@ final class AttendanceRecordCardView: UIView {
         textStack.addArrangedSubview(locationLabel)
         textStack.addArrangedSubview(captionLabel)
         addSubview(textStack)
+        addSubview(detailChevronButton)
     }
 
     private func setupLayout() {
@@ -132,15 +144,21 @@ final class AttendanceRecordCardView: UIView {
             $0.width.height.equalTo(Layout.imageSize)
         }
 
+        detailChevronButton.snp.makeConstraints {
+            $0.trailing.equalToSuperview().inset(Layout.padding)
+            $0.centerY.equalToSuperview()
+            $0.width.height.equalTo(28)
+        }
+
         messageLabel.snp.makeConstraints {
             $0.leading.equalTo(potatoImageView.snp.trailing).offset(Layout.imageTextSpacing)
-            $0.trailing.equalToSuperview().inset(Layout.padding)
+            $0.trailing.lessThanOrEqualTo(detailChevronButton.snp.leading).offset(-4)
             $0.centerY.equalToSuperview()
         }
 
         textStack.snp.makeConstraints {
             $0.leading.equalTo(potatoImageView.snp.trailing).offset(Layout.imageTextSpacing)
-            $0.trailing.equalToSuperview().inset(Layout.padding)
+            $0.trailing.lessThanOrEqualTo(detailChevronButton.snp.leading).offset(-4)
             $0.centerY.equalToSuperview()
         }
     }
@@ -150,6 +168,8 @@ final class AttendanceRecordCardView: UIView {
         layer.cornerRadius = Layout.cornerRadius
         layer.borderWidth = Layout.borderWidth
         clipsToBounds = true
+
+        detailChevronButton.addTarget(self, action: #selector(didTapChevron), for: .touchUpInside)
 
         potatoImageView.contentMode = .scaleAspectFit
 
@@ -168,6 +188,12 @@ final class AttendanceRecordCardView: UIView {
         captionLabel.textColor = GTTColor.labelSecondary
     }
 
+    // MARK: - Actions
+
+    @objc private func didTapChevron() {
+        onDetailTapped?()
+    }
+
     // MARK: - Configure
 
     func configure(state: AttendanceRecordState) {
@@ -178,10 +204,12 @@ final class AttendanceRecordCardView: UIView {
         case .noMission:
             messageLabel.isHidden = false
             textStack.isHidden = true
+            detailChevronButton.isHidden = true
             messageLabel.text = "오늘의 미션이 없어요.\n미션을 만들어서 확인해보세요"
         case .success, .late, .inProgress, .failure:
             messageLabel.isHidden = true
             textStack.isHidden = false
+            detailChevronButton.isHidden = false
             locationLabel.text = state.locationName
             captionLabel.text = state.caption
         }

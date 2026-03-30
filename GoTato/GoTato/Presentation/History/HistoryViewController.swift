@@ -191,15 +191,19 @@ final class HistoryViewController: BaseViewController {
 
         // 출근 기록 섹션 갱신
         output.recordsData
-            .drive(onNext: { [weak self] (title, states) in
+            .drive(onNext: { [weak self] (title, items) in
                 guard let self else { return }
                 self.recordTitleLabel.text = title
 
-                // 기존 카드 제거 후 재구성
                 self.recordCardsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
-                for state in states {
+                for (missionID, state) in items {
                     let card = AttendanceRecordCardView()
                     card.configure(state: state)
+                    if let id = missionID {
+                        card.onDetailTapped = { [weak self] in
+                            self?.navigateToMissionDetail(missionID: id)
+                        }
+                    }
                     self.recordCardsStack.addArrangedSubview(card)
                 }
             })
@@ -213,5 +217,25 @@ final class HistoryViewController: BaseViewController {
                 self?.present(vc, animated: true)
             })
             .disposed(by: disposeBag)
+    }
+
+    // MARK: - Navigation
+
+    private func navigateToMissionDetail(missionID: UUID) {
+        let detailVC = MissionDetailViewController(missionID: missionID)
+        detailVC.delegate = self
+        navigationController?.pushViewController(detailVC, animated: true)
+    }
+}
+
+// MARK: - MissionDetailDelegate
+
+extension HistoryViewController: MissionDetailDelegate {
+    func missionDetailDidUpdate() {
+        viewWillAppearRelay.accept(())
+    }
+
+    func missionDetailDidDelete() {
+        viewWillAppearRelay.accept(())
     }
 }

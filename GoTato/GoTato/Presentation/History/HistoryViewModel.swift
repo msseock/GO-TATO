@@ -35,7 +35,7 @@ final class HistoryViewModel: BaseViewModel {
         let hasMission: Driver<Bool>
         let stats: Driver<(rate: Int, lateCount: Int, savedMinutes: Int)>
         let calendarStatusMap: Driver<[Date: [Int16]]>
-        let recordsData: Driver<(title: String, states: [AttendanceRecordState])>
+        let recordsData: Driver<(title: String, items: [(missionID: UUID?, state: AttendanceRecordState)])>
         let navigateToMissionSetup: Signal<Void>
     }
 
@@ -126,9 +126,9 @@ final class HistoryViewModel: BaseViewModel {
         )
         .share(replay: 1)
 
-        // 출근 기록 섹션: 선택 날짜의 미션별 카드 상태
+        // 출근 기록 섹션: 선택 날짜의 미션별 카드 상태 (missionID 포함)
         let recordsData = Observable.combineLatest(monthAttendances, selectedDate)
-            .map { (attendances, selected) -> (title: String, states: [AttendanceRecordState]) in
+            .map { (attendances, selected) -> (title: String, items: [(missionID: UUID?, state: AttendanceRecordState)]) in
                 let cal = Calendar.current
                 let selectedDay = cal.startOfDay(for: selected)
                 let todayDay    = cal.startOfDay(for: Date())
@@ -149,34 +149,36 @@ final class HistoryViewModel: BaseViewModel {
                 }
 
                 guard !dayAttendances.isEmpty else {
-                    return (title, [.noMission])
+                    return (title, [(nil, .noMission)])
                 }
 
-                let states: [AttendanceRecordState] = dayAttendances.map { attendance in
+                let items: [(missionID: UUID?, state: AttendanceRecordState)] = dayAttendances.map { attendance in
+                    let missionID    = attendance.mission?.id
                     let locationName = attendance.mission?.location?.name ?? ""
+                    let state: AttendanceRecordState
                     switch attendance.attendanceStatus {
                     case .pending:
-                        // 오늘 혹은 미래 날짜에는 inProgress 표시
-                        return isTodayOrFuture
+                        state = isTodayOrFuture
                             ? .inProgress(locationName: locationName)
                             : .failure(locationName: locationName)
                     case .success:
                         let diff = attendance.recordDate.flatMap { r in
                             attendance.planDate.map { Int($0.timeIntervalSince(r) / 60) }
                         } ?? 0
-                        return .success(locationName: locationName, minutesDiff: diff)
+                        state = .success(locationName: locationName, minutesDiff: diff)
                     case .late:
                         let diff = attendance.recordDate.flatMap { r in
                             attendance.planDate.map { Int(r.timeIntervalSince($0) / 60) }
                         } ?? 0
-                        return .late(locationName: locationName, minutesDiff: diff)
+                        state = .late(locationName: locationName, minutesDiff: diff)
                     case .fail, .failCommitted:
-                        return .failure(locationName: locationName)
+                        state = .failure(locationName: locationName)
                     }
+                    return (missionID, state)
                 }
-                return (title, states)
+                return (title, items)
             }
-            .asDriver(onErrorJustReturn: (title: "오늘의 출근 기록", states: [.noMission]))
+            .asDriver(onErrorJustReturn: (title: "오늘의 출근 기록", items: [(nil, .noMission)]))
 
         // 미션 추가/출근 설정 버튼 → MissionSetupViewController 이동
         let navigateToMissionSetup = Observable.merge(
