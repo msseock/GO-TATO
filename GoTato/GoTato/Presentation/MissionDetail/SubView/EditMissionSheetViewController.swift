@@ -217,7 +217,7 @@ final class EditMissionSheetViewController: UIViewController {
         }
         missionNameCard.snp.makeConstraints { $0.height.equalTo(50) }
 
-        if currentLocationName != nil {
+        if canEditLocationAndDeadline && currentLocationName != nil {
             locationField.snp.makeConstraints {
                 $0.edges.equalToSuperview().inset(UIEdgeInsets(top: 14, left: 16, bottom: 14, right: 16))
             }
