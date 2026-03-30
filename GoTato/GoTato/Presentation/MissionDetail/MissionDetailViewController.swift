@@ -26,6 +26,7 @@ final class MissionDetailViewController: BaseViewController {
     private let viewModel: MissionDetailViewModel
     private let disposeBag = DisposeBag()
     private var latestInfo: MissionDetailState?
+    private var latestIsMissionEnded: Bool = false
 
     // Input relays
     private let viewWillAppearRelay  = PublishRelay<Void>()
@@ -151,6 +152,7 @@ final class MissionDetailViewController: BaseViewController {
 
         output.isMissionEnded
             .drive(onNext: { [weak self] ended in
+                self?.latestIsMissionEnded = ended
                 self?.updateMenu(isMissionEnded: ended)
             })
             .disposed(by: disposeBag)
@@ -209,20 +211,9 @@ final class MissionDetailViewController: BaseViewController {
     private func updateMenu(isMissionEnded: Bool) {
         var actions: [UIAction] = []
 
-        actions.append(UIAction(title: "미션 이름 수정", image: UIImage(systemName: "pencil")) { [weak self] _ in
-            self?.presentEditTitleSheet()
+        actions.append(UIAction(title: "미션 수정", image: UIImage(systemName: "pencil")) { [weak self] _ in
+            self?.presentEditMissionSheet()
         })
-
-        if !isMissionEnded {
-            if latestInfo?.locationName != nil {
-                actions.append(UIAction(title: "위치 이름 수정", image: UIImage(systemName: "mappin")) { [weak self] _ in
-                    self?.presentEditLocationNameSheet()
-                })
-            }
-            actions.append(UIAction(title: "마감 시각 수정", image: UIImage(systemName: "clock")) { [weak self] _ in
-                self?.presentEditDeadlineSheet()
-            })
-        }
 
         actions.append(UIAction(
             title: "미션 삭제",
@@ -235,33 +226,32 @@ final class MissionDetailViewController: BaseViewController {
         navigationItem.rightBarButtonItem?.menu = UIMenu(title: "", children: actions)
     }
 
-    // MARK: - Edit Sheets
+    // MARK: - Edit Sheet
 
-    private func presentEditTitleSheet() {
+    private func presentEditMissionSheet() {
         guard let info = latestInfo else { return }
         let allTitles = fetchAllMissionTitles()
         let forbidden = allTitles.filter { $0 != info.title }
-        let sheet = EditTitleSheetViewController(currentTitle: info.title, forbiddenTitles: forbidden)
-        sheet.onConfirm = { [weak self] newTitle in self?.editTitleRelay.accept(newTitle) }
-        presentSheet(sheet)
-    }
 
-    private func presentEditLocationNameSheet() {
-        guard let info = latestInfo, let name = info.locationName else { return }
-        let sheet = EditLocationNameSheetViewController(currentName: name)
-        sheet.onConfirm = { [weak self] newName in self?.editLocationRelay.accept(newName) }
-        presentSheet(sheet)
-    }
-
-    private func presentEditDeadlineSheet() {
-        guard let info = latestInfo else { return }
-        let sheet = GTTTimePickerSheetViewController(
-            title: "마감 시각 수정",
-            initialDate: info.deadline,
-            showCancel: true
+        let sheet = EditMissionSheetViewController(
+            currentTitle: info.title,
+            forbiddenTitles: forbidden,
+            currentLocationName: info.locationName,
+            currentDeadline: info.deadline,
+            isMissionEnded: latestIsMissionEnded
         )
-        sheet.onConfirm = { [weak self] newDate in self?.editDeadlineRelay.accept(newDate) }
-        presentSheet(sheet)
+        sheet.onConfirm = { [weak self] result in
+            if let title = result.newTitle {
+                self?.editTitleRelay.accept(title)
+            }
+            if let location = result.newLocationName {
+                self?.editLocationRelay.accept(location)
+            }
+            if let deadline = result.newDeadline {
+                self?.editDeadlineRelay.accept(deadline)
+            }
+        }
+        navigationController?.pushViewController(sheet, animated: true)
     }
 
     @objc private func didTapExtend() {
