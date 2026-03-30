@@ -143,6 +143,7 @@ final class DashboardPageContentViewController: UIViewController {
         scrollView.alwaysBounceVertical = true
         scrollView.showsVerticalScrollIndicator = false
         scrollView.refreshControl = refreshControl
+        refreshControl.tintColor = GTTColor.brand
         refreshControl.addTarget(self, action: #selector(handleRefresh), for: .valueChanged)
 
         contentStack.axis = .vertical

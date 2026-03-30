@@ -56,8 +56,9 @@ final class HistoryViewController: BaseViewController {
 
     // MARK: - Scroll
 
-    private let scrollView    = UIScrollView()
-    private let contentStack  = UIStackView()
+    private let scrollView     = UIScrollView()
+    private let contentStack   = UIStackView()
+    private let refreshControl = UIRefreshControl()
 
     // MARK: - 섹션 2: 통계 or 출근 설정
 
@@ -125,6 +126,10 @@ final class HistoryViewController: BaseViewController {
             self?.setMissionSubject.onNext(())
         }
 
+        scrollView.refreshControl = refreshControl
+        refreshControl.tintColor  = GTTColor.brand
+        refreshControl.addTarget(self, action: #selector(handlePullToRefresh), for: .valueChanged)
+
         // contentStack
         contentStack.axis      = .vertical
         contentStack.spacing   = 20
@@ -161,10 +166,11 @@ final class HistoryViewController: BaseViewController {
         )
         let output = viewModel.transform(input: input)
 
-        // 미션 유무 → 섹션 2 뷰 전환 및 추가 버튼 표시 여부
+        // 미션 유무 → 섹션 2 뷰 전환 및 추가 버튼 표시 여부, 새로고침 종료
         output.hasMission
             .drive(onNext: { [weak self] has in
                 guard let self else { return }
+                self.refreshControl.endRefreshing()
                 self.statsCardView.isHidden        = !has
                 self.setMissionButtonView.isHidden = has
                 self.addMissionButton.isHidden     = !has
@@ -217,6 +223,12 @@ final class HistoryViewController: BaseViewController {
                 self?.present(vc, animated: true)
             })
             .disposed(by: disposeBag)
+    }
+
+    // MARK: - Actions
+
+    @objc private func handlePullToRefresh() {
+        viewWillAppearRelay.accept(())
     }
 
     // MARK: - Navigation
