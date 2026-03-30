@@ -407,7 +407,7 @@ final class DashboardViewModel: BaseViewModel {
             lng: current.coordinate.longitude
         )
 
-        if distance <= 20 {
+        if distance <= 50 {
             return (
                 .nearDestination(
                     locationName: locationName,
