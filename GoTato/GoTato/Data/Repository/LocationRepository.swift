@@ -11,6 +11,7 @@ protocol LocationRepositoryProtocol {
     func fetchAllLocations() -> Single<[Location]>
     func createLocation(name: String, lati: Double, longi: Double) -> Single<Location>
     func findOrCreateLocation(name: String, lati: Double, longi: Double) -> Single<Location>
+    func updateLocationName(locationID: UUID, newName: String) -> Single<Void>
 }
 
 final class LocationRepository: LocationRepositoryProtocol {
@@ -58,6 +59,22 @@ final class LocationRepository: LocationRepositoryProtocol {
         .observe(on: MainScheduler.instance)
         .map { objectID in
             viewContext.object(with: objectID) as! Location
+        }
+    }
+
+    /// Location 이름 수정. 동일 Location을 참조하는 모든 미션에 반영됨.
+    func updateLocationName(locationID: UUID, newName: String) -> Single<Void> {
+        return stack.performBackgroundTask { ctx in
+            let request = Location.fetchRequest()
+            request.predicate = NSPredicate(format: "id == %@", locationID as CVarArg)
+            request.fetchLimit = 1
+            guard let location = try ctx.fetch(request).first else {
+                throw RepositoryError.notFound
+            }
+            #if DEBUG
+            print("[DB][Location] updateLocationName: \"\(location.name ?? "")\" → \"\(newName)\"")
+            #endif
+            location.name = newName
         }
     }
 

@@ -11,8 +11,11 @@ protocol MissionRepositoryProtocol {
     func fetchAllMissions() -> Single<[Mission]>
     func fetchActiveMissions() -> Single<[Mission]>
     func fetchTodayActiveMissions() -> Single<[Mission]>
+    func fetchMission(id: UUID) -> Single<Mission?>
     func createMission(title: String, deadline: Date, startDate: Date, endDate: Date, location: Location) -> Single<Void>
+    func updateTitle(missionID: UUID, newTitle: String) -> Single<Void>
     func updateDeadline(missionID: UUID, newDeadline: Date) -> Single<Void>
+    func extendMission(missionID: UUID, newEndDate: Date) -> Single<Void>
     func deleteMission(missionID: UUID) -> Single<Void>
 }
 
@@ -99,6 +102,21 @@ final class MissionRepository: MissionRepositoryProtocol {
         }
     }
 
+    func fetchMission(id: UUID) -> Single<Mission?> {
+        let context = stack.viewContext
+        return Single.create { observer in
+            let request = Mission.fetchRequest()
+            request.predicate = NSPredicate(format: "id == %@", id as CVarArg)
+            request.fetchLimit = 1
+            do {
+                observer(.success(try context.fetch(request).first))
+            } catch {
+                observer(.failure(error))
+            }
+            return Disposables.create()
+        }
+    }
+
     // MARK: - Write
 
     /// 미션 생성.
@@ -175,6 +193,67 @@ final class MissionRepository: MissionRepositoryProtocol {
 
             #if DEBUG
             print("[DB][Mission] ✅ createMission 완료 - title: \"\(title)\", Attendance \(days.count)개 생성")
+            #endif
+        }
+    }
+
+    /// 미션 제목 수정.
+    func updateTitle(missionID: UUID, newTitle: String) -> Single<Void> {
+        return stack.performBackgroundTask { ctx in
+            let request = Mission.fetchRequest()
+            request.predicate = NSPredicate(format: "id == %@", missionID as CVarArg)
+            request.fetchLimit = 1
+            guard let mission = try ctx.fetch(request).first else {
+                throw RepositoryError.notFound
+            }
+            #if DEBUG
+            print("[DB][Mission] updateTitle: \"\(mission.title ?? "")\" → \"\(newTitle)\"")
+            #endif
+            mission.title = newTitle
+        }
+    }
+
+    /// endDate 연장.
+    /// 사이드 이펙트: 기존 endDate+1일 ~ 새 endDate 범위의 Attendance 일괄 생성.
+    func extendMission(missionID: UUID, newEndDate: Date) -> Single<Void> {
+        return stack.performBackgroundTask { ctx in
+            let request = Mission.fetchRequest()
+            request.predicate = NSPredicate(format: "id == %@", missionID as CVarArg)
+            request.fetchLimit = 1
+            guard let mission = try ctx.fetch(request).first else {
+                throw RepositoryError.notFound
+            }
+
+            let oldEndDate = mission.endDate!
+            let startDate  = mission.startDate!
+
+            // 기간 겹치는 다른 미션 수 검증 (자기 자신 제외)
+            let overlapFetch = Mission.fetchRequest()
+            overlapFetch.predicate = NSPredicate(
+                format: "startDate <= %@ AND endDate >= %@ AND id != %@",
+                newEndDate as CVarArg,
+                startDate as CVarArg,
+                missionID as CVarArg
+            )
+            let overlapping = try ctx.fetch(overlapFetch)
+            guard overlapping.count < 10 else {
+                throw RepositoryError.tooManyActiveMissions
+            }
+
+            mission.endDate = newEndDate
+
+            let dateService = GTTDateService.shared
+            guard let dayAfterOld = Calendar.current.date(byAdding: .day, value: 1, to: oldEndDate) else { return }
+            let newDays = dateService.calendarDays(from: dayAfterOld, through: newEndDate)
+            let deadline = mission.deadline!
+            for day in newDays {
+                let attendance = Attendance(context: ctx)
+                attendance.planDate = dateService.combining(date: day, timeFrom: deadline)
+                attendance.mission  = mission
+            }
+
+            #if DEBUG
+            print("[DB][Mission] extendMission 완료 - \"\(mission.title ?? "")\" → \(newEndDate), Attendance \(newDays.count)개 추가")
             #endif
         }
     }
