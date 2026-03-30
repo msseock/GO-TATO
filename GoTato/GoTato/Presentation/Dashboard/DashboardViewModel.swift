@@ -230,8 +230,19 @@ final class DashboardViewModel: BaseViewModel {
                                 now < l.1.planDate!.addingTimeInterval(3 * 3600)
                             let rActive = r.1.recordDate == nil &&
                                 now < r.1.planDate!.addingTimeInterval(3 * 3600)
+                            
+                            // 1. 진행 중인 미션(Active)을 우선순위로 둠
                             if lActive != rActive { return lActive }
-                            return l.1.planDate! < r.1.planDate!
+                            
+                            if lActive {
+                                // 2. 진행 중인 미션끼리는 계획된 시간 순서대로 (빠른 시간부터)
+                                return l.1.planDate! < r.1.planDate!
+                            } else {
+                                // 3. 확정된 미션(성공/실패)끼리는 현재 시간과 가까운 순서대로
+                                let lDiff = abs(l.1.planDate!.timeIntervalSince(now))
+                                let rDiff = abs(r.1.planDate!.timeIntervalSince(now))
+                                return lDiff < rDiff
+                            }
                         }
                     }
                     .asObservable()
