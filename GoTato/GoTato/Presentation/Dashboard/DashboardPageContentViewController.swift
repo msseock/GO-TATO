@@ -135,6 +135,13 @@ final class DashboardPageContentViewController: UIViewController {
         messageCardView.configure(state: state.messageCardState)
         updateMainAction(state.mainActionState)
         updateBottomButton(state.bottomButtonState)
+
+        // 출근 성공 상태인 경우 새로고침이 필요 없으므로 리프레시 컨트롤 비활성화
+        if case .success = state.mainActionState {
+            refreshControl.isEnabled = false
+        } else {
+            refreshControl.isEnabled = true
+        }
     }
 
     private func updateMainAction(_ mainState: MainActionState) {
