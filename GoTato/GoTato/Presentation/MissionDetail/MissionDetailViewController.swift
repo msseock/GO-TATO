@@ -256,9 +256,12 @@ final class MissionDetailViewController: BaseViewController {
 
     @objc private func didTapExtend() {
         guard let info = latestInfo else { return }
-        let sheet = ExtendDatePickerSheet(currentEndDate: info.endDate)
+        let cal = Calendar.current
+        let tomorrow = cal.date(byAdding: .day, value: 1, to: info.endDate)!
+        let maxDate  = cal.date(byAdding: .month, value: 1, to: info.endDate)!
+        let sheet = DatePickerSheetViewController(initial: tomorrow, minDate: tomorrow, maxDate: maxDate)
         sheet.onConfirm = { [weak self] newEnd in self?.extendEndDateRelay.accept(newEnd) }
-        presentSheet(sheet)
+        present(sheet, animated: true)
     }
 
     private func showDeleteConfirmation() {
@@ -275,15 +278,6 @@ final class MissionDetailViewController: BaseViewController {
     }
 
     // MARK: - Helpers
-
-    private func presentSheet(_ vc: UIViewController) {
-        vc.modalPresentationStyle = .pageSheet
-        if let sheet = vc.sheetPresentationController {
-            sheet.detents = [.medium()]
-            sheet.prefersGrabberVisible = true
-        }
-        present(vc, animated: true)
-    }
 
     private func fetchAllMissionTitles() -> [String] {
         let request = Mission.fetchRequest()

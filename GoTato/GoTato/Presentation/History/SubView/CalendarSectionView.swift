@@ -86,133 +86,6 @@ private final class CalendarDayCell: FSCalendarCell {
     }
 }
 
-// MARK: - MonthPickerSheet
-
-private final class MonthPickerSheet: UIViewController {
-
-    var onConfirm: ((Date) -> Void)?
-
-    private let titleLabel    = UILabel()
-    private let pickerView    = UIPickerView()
-    private let cancelButton  = UIButton(type: .system)
-    private let confirmButton = UIButton(type: .system)
-
-    private let years: [Int] = {
-        let current = Calendar.current.component(.year, from: Date())
-        return Array((current - 5)...(current + 1))
-    }()
-    private let months = Array(1...12)
-
-    private let initialDate: Date
-
-    init(currentDate: Date) {
-        self.initialDate = currentDate
-        super.init(nibName: nil, bundle: nil)
-    }
-
-    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
-
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        setupHierarchy()
-        setupLayout()
-        setupStyle()
-        selectInitialRows()
-    }
-
-    private func setupHierarchy() {
-        view.addSubview(titleLabel)
-        view.addSubview(pickerView)
-        view.addSubview(cancelButton)
-        view.addSubview(confirmButton)
-    }
-
-    private func setupLayout() {
-        titleLabel.snp.makeConstraints {
-            $0.top.equalToSuperview().offset(24)
-            $0.centerX.equalToSuperview()
-        }
-
-        pickerView.snp.makeConstraints {
-            $0.top.equalTo(titleLabel.snp.bottom).offset(8)
-            $0.leading.trailing.equalToSuperview()
-        }
-
-        cancelButton.snp.makeConstraints {
-            $0.top.equalTo(pickerView.snp.bottom).offset(12)
-            $0.leading.equalToSuperview().inset(24)
-            $0.bottom.lessThanOrEqualTo(view.safeAreaLayoutGuide).inset(20)
-        }
-
-        confirmButton.snp.makeConstraints {
-            $0.centerY.equalTo(cancelButton)
-            $0.trailing.equalToSuperview().inset(24)
-        }
-    }
-
-    private func setupStyle() {
-        view.backgroundColor = GTTColor.bgPrimary
-
-        titleLabel.text      = "월 선택"
-        titleLabel.font      = GTTFont.subHeading.font
-        titleLabel.textColor = GTTColor.textPrimary
-
-        pickerView.dataSource = self
-        pickerView.delegate   = self
-
-        cancelButton.setTitle("취소", for: .normal)
-        cancelButton.titleLabel?.font = GTTFont.body.font
-        cancelButton.setTitleColor(GTTColor.textSecondary, for: .normal)
-        cancelButton.addTarget(self, action: #selector(didTapCancel), for: .touchUpInside)
-
-        confirmButton.setTitle("확인", for: .normal)
-        confirmButton.titleLabel?.font = GTTFont.subHeading.font
-        confirmButton.setTitleColor(GTTColor.brand, for: .normal)
-        confirmButton.addTarget(self, action: #selector(didTapConfirm), for: .touchUpInside)
-    }
-
-    private func selectInitialRows() {
-        let cal   = Calendar.current
-        let year  = cal.component(.year, from: initialDate)
-        let month = cal.component(.month, from: initialDate)
-        if let yearRow = years.firstIndex(of: year) {
-            pickerView.selectRow(yearRow, inComponent: 0, animated: false)
-        }
-        pickerView.selectRow(month - 1, inComponent: 1, animated: false)
-    }
-
-    @objc private func didTapConfirm() {
-        let year  = years[pickerView.selectedRow(inComponent: 0)]
-        let month = months[pickerView.selectedRow(inComponent: 1)]
-        var comps  = DateComponents()
-        comps.year  = year
-        comps.month = month
-        comps.day   = 1
-        if let date = Calendar.current.date(from: comps) {
-            onConfirm?(date)
-        }
-        dismiss(animated: true)
-    }
-
-    @objc private func didTapCancel() {
-        dismiss(animated: true)
-    }
-}
-
-// MARK: - MonthPickerSheet: UIPickerViewDataSource & Delegate
-
-extension MonthPickerSheet: UIPickerViewDataSource, UIPickerViewDelegate {
-    func numberOfComponents(in pickerView: UIPickerView) -> Int { 2 }
-
-    func pickerView(_ pickerView: UIPickerView, numberOfRowsInComponent component: Int) -> Int {
-        component == 0 ? years.count : months.count
-    }
-
-    func pickerView(_ pickerView: UIPickerView, titleForRow row: Int, forComponent component: Int) -> String? {
-        component == 0 ? "\(years[row])년" : "\(months[row])월"
-    }
-}
-
 // MARK: - CalendarSectionView
 
 final class CalendarSectionView: UIView {
@@ -400,8 +273,8 @@ final class CalendarSectionView: UIView {
     @objc private func didTapMonthNav() {
         guard let vc = findViewController() else { return }
 
-        let sheet = MonthPickerSheet(currentDate: fsCalendar.currentPage)
-        sheet.onConfirm = { [weak self] selectedDate in
+        let picker = GTTMonthPickerSheetViewController(currentDate: fsCalendar.currentPage)
+        picker.onConfirm = { [weak self] selectedDate in
             guard let self else { return }
             let comps = Calendar.current.dateComponents([.year, .month], from: selectedDate)
             guard let targetDate = Calendar.current.date(from: comps) else { return }
@@ -410,12 +283,14 @@ final class CalendarSectionView: UIView {
             self.fsCalendar.setCurrentPage(targetDate, animated: true)
         }
 
-        sheet.modalPresentationStyle = .pageSheet
-        if let controller = sheet.sheetPresentationController {
-            controller.detents             = [.medium()]
+        let nav = UINavigationController(rootViewController: picker)
+        nav.modalPresentationStyle = .pageSheet
+        if let controller = nav.sheetPresentationController {
+            // navBar(44) + picker(216) + grabber 영역(20) = 280
+            controller.detents = [.custom(identifier: .init("monthPicker")) { _ in 280 }]
             controller.prefersGrabberVisible = true
         }
-        vc.present(sheet, animated: true)
+        vc.present(nav, animated: true)
     }
 
     private func findViewController() -> UIViewController? {

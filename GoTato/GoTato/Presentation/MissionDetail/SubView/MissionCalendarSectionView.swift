@@ -243,23 +243,24 @@ final class MissionCalendarSectionView: UIView {
 
     @objc private func didTapMonthNav() {
         guard let vc = findViewController() else { return }
-        let sheet = MissionMonthPickerSheet(
+        let picker = GTTMonthPickerSheetViewController(
             currentDate: fsCalendar.currentPage,
-            minDate: missionStartDate ?? fsCalendar.currentPage,
-            maxDate: missionEndDate   ?? fsCalendar.currentPage
+            minDate: missionStartDate,
+            maxDate: missionEndDate
         )
-        sheet.onConfirm = { [weak self] date in
+        picker.onConfirm = { [weak self] date in
             guard let self else { return }
             let comps = Calendar.current.dateComponents([.year, .month], from: date)
             guard let target = Calendar.current.date(from: comps) else { return }
             self.fsCalendar.setCurrentPage(target, animated: true)
         }
-        sheet.modalPresentationStyle = .pageSheet
-        if let ctrl = sheet.sheetPresentationController {
-            ctrl.detents = [.medium()]
+        let nav = UINavigationController(rootViewController: picker)
+        nav.modalPresentationStyle = .pageSheet
+        if let ctrl = nav.sheetPresentationController {
+            ctrl.detents = [.custom(identifier: .init("monthPicker")) { _ in 280 }]
             ctrl.prefersGrabberVisible = true
         }
-        vc.present(sheet, animated: true)
+        vc.present(nav, animated: true)
     }
 
     private func findViewController() -> UIViewController? {
@@ -324,108 +325,3 @@ extension MissionCalendarSectionView: FSCalendarDelegateAppearance {
     }
 }
 
-// MARK: - MissionMonthPickerSheet
-
-private final class MissionMonthPickerSheet: UIViewController {
-
-    var onConfirm: ((Date) -> Void)?
-
-    private let titleLabel    = UILabel()
-    private let pickerView    = UIPickerView()
-    private let cancelButton  = UIButton(type: .system)
-    private let confirmButton = UIButton(type: .system)
-
-    private let years: [Int]
-    private let months = Array(1...12)
-    private let initialDate: Date
-    private let minDate: Date
-    private let maxDate: Date
-
-    init(currentDate: Date, minDate: Date, maxDate: Date) {
-        self.initialDate = currentDate
-        self.minDate     = minDate
-        self.maxDate     = maxDate
-        let cal      = Calendar.current
-        let minYear  = cal.component(.year, from: minDate)
-        let maxYear  = cal.component(.year, from: maxDate)
-        self.years   = Array(minYear...max(minYear, maxYear))
-        super.init(nibName: nil, bundle: nil)
-    }
-
-    required init?(coder: NSCoder) { fatalError() }
-
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        view.backgroundColor = GTTColor.bgPrimary
-
-        titleLabel.text      = "월 선택"
-        titleLabel.font      = GTTFont.subHeading.font
-        titleLabel.textColor = GTTColor.textPrimary
-
-        pickerView.dataSource = self
-        pickerView.delegate   = self
-
-        cancelButton.setTitle("취소", for: .normal)
-        cancelButton.titleLabel?.font = GTTFont.body.font
-        cancelButton.setTitleColor(GTTColor.textSecondary, for: .normal)
-        cancelButton.addTarget(self, action: #selector(didTapCancel), for: .touchUpInside)
-
-        confirmButton.setTitle("확인", for: .normal)
-        confirmButton.titleLabel?.font = GTTFont.subHeading.font
-        confirmButton.setTitleColor(GTTColor.brand, for: .normal)
-        confirmButton.addTarget(self, action: #selector(didTapConfirm), for: .touchUpInside)
-
-        [titleLabel, pickerView, cancelButton, confirmButton].forEach { view.addSubview($0) }
-
-        titleLabel.snp.makeConstraints {
-            $0.top.equalToSuperview().offset(24)
-            $0.centerX.equalToSuperview()
-        }
-        pickerView.snp.makeConstraints {
-            $0.top.equalTo(titleLabel.snp.bottom).offset(8)
-            $0.leading.trailing.equalToSuperview()
-        }
-        cancelButton.snp.makeConstraints {
-            $0.top.equalTo(pickerView.snp.bottom).offset(12)
-            $0.leading.equalToSuperview().inset(24)
-            $0.bottom.lessThanOrEqualTo(view.safeAreaLayoutGuide).inset(20)
-        }
-        confirmButton.snp.makeConstraints {
-            $0.centerY.equalTo(cancelButton)
-            $0.trailing.equalToSuperview().inset(24)
-        }
-
-        let cal   = Calendar.current
-        let year  = cal.component(.year, from: initialDate)
-        let month = cal.component(.month, from: initialDate)
-        if let yearRow = years.firstIndex(of: year) {
-            pickerView.selectRow(yearRow, inComponent: 0, animated: false)
-        }
-        pickerView.selectRow(month - 1, inComponent: 1, animated: false)
-    }
-
-    @objc private func didTapConfirm() {
-        let year  = years[pickerView.selectedRow(inComponent: 0)]
-        let month = months[pickerView.selectedRow(inComponent: 1)]
-        var comps  = DateComponents()
-        comps.year  = year
-        comps.month = month
-        comps.day   = 1
-        if let date = Calendar.current.date(from: comps) {
-            onConfirm?(date)
-        }
-        dismiss(animated: true)
-    }
-
-    @objc private func didTapCancel() { dismiss(animated: true) }
-}
-
-extension MissionMonthPickerSheet: UIPickerViewDataSource, UIPickerViewDelegate {
-    func numberOfComponents(in pickerView: UIPickerView) -> Int { 2 }
-    func pickerView(_ pickerView: UIPickerView, numberOfRowsInComponent component: Int) -> Int {
-        component == 0 ? years.count : months.count
-    }
-    func pickerView(_ pickerView: UIPickerView, titleForRow row: Int, forComponent component: Int) -> String? {
-        component == 0 ? "\(years[row])년" : "\(months[row])월"
-    }
-}
