@@ -24,12 +24,13 @@ final class DashboardPageContentViewController: UIViewController {
     private let headerView = UIView()
     private let titleLabel = UILabel()
     private let deadlineLabel = UILabel()
-    private let detailChevronButton: UIButton = {
-        let btn = UIButton(type: .system)
+    private let detailChevronImageView: UIImageView = {
+        let iv = UIImageView()
         let config = UIImage.SymbolConfiguration(pointSize: 14, weight: .semibold)
-        btn.setImage(UIImage(systemName: "chevron.right", withConfiguration: config), for: .normal)
-        btn.tintColor = GTTColor.textSubtle
-        return btn
+        iv.image = UIImage(systemName: "chevron.right", withConfiguration: config)
+        iv.tintColor = GTTColor.textSubtle
+        iv.contentMode = .center
+        return iv
     }()
     private let messageCardView = DashBoardMessageCardView()
     private let mainActionContainer = UIView()
@@ -88,7 +89,7 @@ final class DashboardPageContentViewController: UIViewController {
         scrollView.addSubview(contentStack)
         headerView.addSubview(titleLabel)
         headerView.addSubview(deadlineLabel)
-        headerView.addSubview(detailChevronButton)
+        headerView.addSubview(detailChevronImageView)
         contentStack.addArrangedSubview(headerView)
         contentStack.addArrangedSubview(messageCardView)
         contentStack.addArrangedSubview(mainActionContainer)
@@ -110,7 +111,7 @@ final class DashboardPageContentViewController: UIViewController {
             $0.height.greaterThanOrEqualTo(32)
         }
         
-        detailChevronButton.snp.makeConstraints {
+        detailChevronImageView.snp.makeConstraints {
             $0.leading.equalTo(titleLabel.snp.trailing)
             $0.centerY.equalTo(titleLabel)
             $0.width.height.equalTo(32)
@@ -138,7 +139,9 @@ final class DashboardPageContentViewController: UIViewController {
         deadlineLabel.textColor = GTTColor.textSecondary
         deadlineLabel.textAlignment = .left
 
-        detailChevronButton.addTarget(self, action: #selector(didTapDetailChevron), for: .touchUpInside)
+        let headerTap = UITapGestureRecognizer(target: self, action: #selector(didTapHeader))
+        headerView.addGestureRecognizer(headerTap)
+        headerView.isUserInteractionEnabled = true
 
         scrollView.alwaysBounceVertical = true
         scrollView.showsVerticalScrollIndicator = false
@@ -158,7 +161,7 @@ final class DashboardPageContentViewController: UIViewController {
         onRefreshPulled?()
     }
 
-    @objc private func didTapDetailChevron() {
+    @objc private func didTapHeader() {
         onMissionDetailTapped?()
     }
 

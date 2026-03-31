@@ -106,13 +106,16 @@ final class AttendanceRecordCardView: UIView {
     private let textStack         = UIStackView()
     private let locationLabel     = UILabel()
     private let captionLabel      = UILabel()
-    private let detailChevronButton: UIButton = {
-        let btn = UIButton(type: .system)
+    private let detailChevronImageView: UIImageView = {
+        let iv = UIImageView()
         let config = UIImage.SymbolConfiguration(pointSize: 12, weight: .semibold)
-        btn.setImage(UIImage(systemName: "chevron.right", withConfiguration: config), for: .normal)
-        btn.tintColor = GTTColor.textSubtle
-        return btn
+        iv.image = UIImage(systemName: "chevron.right", withConfiguration: config)
+        iv.tintColor = GTTColor.textSubtle
+        iv.contentMode = .center
+        return iv
     }()
+
+    private var canTap: Bool = false
 
     // MARK: - Init
 
@@ -135,7 +138,7 @@ final class AttendanceRecordCardView: UIView {
         textStack.addArrangedSubview(locationLabel)
         textStack.addArrangedSubview(captionLabel)
         addSubview(textStack)
-        addSubview(detailChevronButton)
+        addSubview(detailChevronImageView)
     }
 
     private func setupLayout() {
@@ -144,7 +147,7 @@ final class AttendanceRecordCardView: UIView {
             $0.width.height.equalTo(Layout.imageSize)
         }
 
-        detailChevronButton.snp.makeConstraints {
+        detailChevronImageView.snp.makeConstraints {
             $0.trailing.equalToSuperview().inset(Layout.padding)
             $0.centerY.equalToSuperview()
             $0.width.height.equalTo(28)
@@ -152,13 +155,13 @@ final class AttendanceRecordCardView: UIView {
 
         messageLabel.snp.makeConstraints {
             $0.leading.equalTo(potatoImageView.snp.trailing).offset(Layout.imageTextSpacing)
-            $0.trailing.lessThanOrEqualTo(detailChevronButton.snp.leading).offset(-4)
+            $0.trailing.lessThanOrEqualTo(detailChevronImageView.snp.leading).offset(-4)
             $0.centerY.equalToSuperview()
         }
 
         textStack.snp.makeConstraints {
             $0.leading.equalTo(potatoImageView.snp.trailing).offset(Layout.imageTextSpacing)
-            $0.trailing.lessThanOrEqualTo(detailChevronButton.snp.leading).offset(-4)
+            $0.trailing.lessThanOrEqualTo(detailChevronImageView.snp.leading).offset(-4)
             $0.centerY.equalToSuperview()
         }
     }
@@ -169,7 +172,8 @@ final class AttendanceRecordCardView: UIView {
         layer.borderWidth = Layout.borderWidth
         clipsToBounds = true
 
-        detailChevronButton.addTarget(self, action: #selector(didTapChevron), for: .touchUpInside)
+        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(handleCardTap))
+        addGestureRecognizer(tapGesture)
 
         potatoImageView.contentMode = .scaleAspectFit
 
@@ -183,6 +187,7 @@ final class AttendanceRecordCardView: UIView {
 
         locationLabel.font = GTTFont.subHeading.font
         locationLabel.textColor = GTTColor.black
+        locationLabel.numberOfLines = 2
 
         captionLabel.font = GTTFont.bodySecondary.font
         captionLabel.textColor = GTTColor.labelSecondary
@@ -190,8 +195,10 @@ final class AttendanceRecordCardView: UIView {
 
     // MARK: - Actions
 
-    @objc private func didTapChevron() {
-        onDetailTapped?()
+    @objc private func handleCardTap() {
+        if canTap {
+            onDetailTapped?()
+        }
     }
 
     // MARK: - Configure
@@ -202,14 +209,16 @@ final class AttendanceRecordCardView: UIView {
 
         switch state {
         case .noMission:
+            canTap = false
             messageLabel.isHidden = false
             textStack.isHidden = true
-            detailChevronButton.isHidden = true
+            detailChevronImageView.isHidden = true
             messageLabel.text = "오늘의 미션이 없어요.\n미션을 만들어서 확인해보세요"
         case .success, .late, .inProgress, .failure:
+            canTap = true
             messageLabel.isHidden = true
             textStack.isHidden = false
-            detailChevronButton.isHidden = false
+            detailChevronImageView.isHidden = false
             locationLabel.text = state.locationName
             captionLabel.text = state.caption
         }
