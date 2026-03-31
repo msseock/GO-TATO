@@ -15,7 +15,6 @@ private enum Layout {
     static let iconSize: CGFloat = 18
     static let rowIconGap: CGFloat = 12
     static let potatoWidth: CGFloat = 200
-    static let cardHeight: CGFloat = 215
 }
 
 // MARK: - MissionSuccessCardView
@@ -57,12 +56,6 @@ final class MissionSuccessCardView: UIView {
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
-    }
-
-    // MARK: - Intrinsic Size
-
-    override var intrinsicContentSize: CGSize {
-        CGSize(width: UIView.noIntrinsicMetric, height: Layout.cardHeight)
     }
 
     // MARK: - Setup
@@ -130,11 +123,12 @@ final class MissionSuccessCardView: UIView {
         infoStack.snp.makeConstraints {
             $0.top.equalTo(dividerView.snp.bottom).offset(Layout.sectionGap)
             $0.leading.equalToSuperview().inset(Layout.padding)
-            $0.trailing.equalTo(potatoImageView.snp.leading).offset(-8)
+            $0.trailing.equalTo(potatoImageView.snp.leading).offset(-10)
+            $0.bottom.equalToSuperview().inset(Layout.padding)
         }
 
         potatoImageView.snp.makeConstraints {
-            $0.trailing.equalToSuperview()
+            $0.trailing.equalToSuperview().offset(20)
             $0.top.equalTo(dividerView.snp.bottom).offset(-10)
             $0.width.height.equalTo(Layout.potatoWidth)
         }
@@ -191,7 +185,7 @@ final class MissionSuccessCardView: UIView {
         // location row
         locationRow.axis = .horizontal
         locationRow.spacing = Layout.rowIconGap
-        locationRow.alignment = .center
+        locationRow.alignment = .top
 
         let pinSymbolConfig = UIImage.SymbolConfiguration(pointSize: 16, weight: .regular)
         locationIconView.image = UIImage(systemName: "location", withConfiguration: pinSymbolConfig)
@@ -207,6 +201,7 @@ final class MissionSuccessCardView: UIView {
 
         locationValueLabel.font = GTTFont.caption.font
         locationValueLabel.textColor = GTTColor.textPrimary
+        locationValueLabel.numberOfLines = 2
 
         potatoImageView.image = UIImage(named: "PotatoNametag")
         potatoImageView.contentMode = .scaleAspectFit
