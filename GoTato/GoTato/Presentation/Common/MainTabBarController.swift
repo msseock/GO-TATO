@@ -12,10 +12,19 @@ final class MainTabBarController: UITabBarController {
         super.viewDidLoad()
 
         let dashboard = UINavigationController(rootViewController: DashboardViewController())
-        dashboard.tabBarItem = UITabBarItem(title: "미션", image: nil, tag: 0)
+        dashboard.tabBarItem = UITabBarItem(
+            title: "미션",
+            image: UIImage(named: "potpotato_black"),
+            selectedImage: UIImage(named: "potpotato_accent")
+        )
 
         let history = UINavigationController(rootViewController: HistoryViewController())
-        history.tabBarItem = UITabBarItem(title: "기록", image: nil, tag: 1)
+        let config = UIImage.SymbolConfiguration(weight: .light)
+        history.tabBarItem = UITabBarItem(
+            title: "기록",
+            image: UIImage(systemName: "calendar", withConfiguration: config),
+            selectedImage: UIImage(systemName: "calendar", withConfiguration: config)
+        )
 
         viewControllers = [dashboard, history]
     }
