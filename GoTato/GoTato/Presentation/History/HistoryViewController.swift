@@ -25,40 +25,37 @@ final class HistoryViewController: BaseViewController {
     private let addMissionSubject    = PublishSubject<Void>()
     private let setMissionSubject    = PublishSubject<Void>()
 
-    // MARK: - Header
+    // MARK: - Navigation Items
 
-    private let headerStack: UIStackView = {
-        let stack = UIStackView()
-        stack.axis = .horizontal
-        stack.alignment = .center
-        stack.distribution = .fill
-        return stack
-    }()
-
-    private let titleLabel: UILabel = {
-        let label = UILabel()
-        label.text = "출근 기록"
-        label.font = GTTFont.dashboardTitle.font
-        label.textColor = GTTColor.textPrimary
-        return label
-    }()
-
-    private let addMissionButton: GTTIconButton = {
-        let config = UIImage.SymbolConfiguration(pointSize: 15, weight: .heavy)
-        return GTTIconButton(
-            systemName: "plus",
-            symbolConfig: config,
-            iconColor: GTTColor.white,
-            backgroundColor: GTTColor.brand,
-            size: 32
+    private lazy var addMissionBarButtonItem: UIBarButtonItem = {
+        let item = UIBarButtonItem(
+            image: UIImage(systemName: "plus"),
+            style: .plain,
+            target: nil,
+            action: nil
         )
+        item.tintColor = GTTColor.brand
+        return item
+    }()
+
+    // MARK: - Navigation Bar Appearance
+
+    private let transparentNavAppearance: UINavigationBarAppearance = {
+        let a = UINavigationBarAppearance()
+        a.configureWithTransparentBackground()
+        return a
+    }()
+
+    private let standardNavAppearance: UINavigationBarAppearance = {
+        let a = UINavigationBarAppearance()
+        a.configureWithDefaultBackground()
+        return a
     }()
 
     // MARK: - Scroll
 
-    private let scrollView     = UIScrollView()
-    private let contentStack   = UIStackView()
-    private let refreshControl = UIRefreshControl()
+    private let scrollView   = UIScrollView()
+    private let contentStack = UIStackView()
 
     // MARK: - 섹션 2: 통계 or 출근 설정
 
@@ -79,7 +76,15 @@ final class HistoryViewController: BaseViewController {
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        navigationController?.navigationBar.prefersLargeTitles = true
+        navigationItem.largeTitleDisplayMode = .automatic
+        applyNavBarAppearance(transparentNavAppearance)
         viewWillAppearRelay.accept(())
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        applyNavBarAppearance(standardNavAppearance)
     }
 
     // MARK: - BaseViewController
@@ -87,14 +92,8 @@ final class HistoryViewController: BaseViewController {
     override func configureHierarchy() {
         view.addSubview(scrollView)
 
-        // Header 내부: 타이틀 + 여백 + 버튼
-        let spacer = UIView()
-        headerStack.addArrangedSubview(titleLabel)
-        headerStack.addArrangedSubview(spacer)
-        headerStack.addArrangedSubview(addMissionButton)
-
-        // contentStack: Header → 섹션 2 → 3 → 4
-        [headerStack, statsCardView, setMissionButtonView, calendarSection, recordSection].forEach {
+        // contentStack: 섹션 2 → 3 → 4
+        [statsCardView, setMissionButtonView, calendarSection, recordSection].forEach {
             contentStack.addArrangedSubview($0)
         }
         scrollView.addSubview(contentStack)
@@ -106,7 +105,7 @@ final class HistoryViewController: BaseViewController {
 
     override func configureLayout() {
         scrollView.snp.makeConstraints {
-            $0.edges.equalTo(view.safeAreaLayoutGuide)
+            $0.edges.equalToSuperview()
         }
 
         contentStack.snp.makeConstraints {
@@ -118,17 +117,15 @@ final class HistoryViewController: BaseViewController {
 
     override func configureView() {
         view.backgroundColor = GTTColor.bgPrimary
+        navigationItem.title = "출근 기록"
+        navigationItem.rightBarButtonItem = addMissionBarButtonItem
 
-        addMissionButton.onTap = { [weak self] in
-            self?.addMissionSubject.onNext(())
-        }
         setMissionButtonView.onTap = { [weak self] in
             self?.setMissionSubject.onNext(())
         }
 
-        scrollView.refreshControl = refreshControl
-        refreshControl.tintColor  = GTTColor.brand
-        refreshControl.addTarget(self, action: #selector(handlePullToRefresh), for: .valueChanged)
+        scrollView.contentInsetAdjustmentBehavior = .automatic
+        scrollView.delegate = self
 
         // contentStack
         contentStack.axis      = .vertical
@@ -166,15 +163,19 @@ final class HistoryViewController: BaseViewController {
         )
         let output = viewModel.transform(input: input)
 
-        // 미션 유무 → 섹션 2 뷰 전환 및 추가 버튼 표시 여부, 새로고침 종료
+        // 미션 유무 → 섹션 2 뷰 전환 및 추가 버튼 표시 여부
         output.hasMission
             .drive(onNext: { [weak self] has in
                 guard let self else { return }
-                self.refreshControl.endRefreshing()
                 self.statsCardView.isHidden        = !has
                 self.setMissionButtonView.isHidden = has
-                self.addMissionButton.isHidden     = !has
+                self.navigationItem.rightBarButtonItem = has ? self.addMissionBarButtonItem : nil
             })
+            .disposed(by: disposeBag)
+
+        // 추가 버튼 탭 바인딩
+        addMissionBarButtonItem.rx.tap
+            .bind(to: addMissionSubject)
             .disposed(by: disposeBag)
 
         // 통계 갱신
@@ -218,17 +219,21 @@ final class HistoryViewController: BaseViewController {
         // MissionSetupViewController present
         output.navigateToMissionSetup
             .emit(onNext: { [weak self] in
+                guard let self else { return }
                 let vc = MissionSetupViewController(isFromOnboarding: false)
+                vc.delegate = self
                 vc.modalPresentationStyle = .pageSheet
-                self?.present(vc, animated: true)
+                self.present(vc, animated: true)
             })
             .disposed(by: disposeBag)
     }
 
-    // MARK: - Actions
+    // MARK: - Helpers
 
-    @objc private func handlePullToRefresh() {
-        viewWillAppearRelay.accept(())
+    private func applyNavBarAppearance(_ appearance: UINavigationBarAppearance) {
+        navigationController?.navigationBar.standardAppearance = appearance
+        navigationController?.navigationBar.scrollEdgeAppearance = appearance
+        navigationController?.navigationBar.compactAppearance = appearance
     }
 
     // MARK: - Navigation
@@ -237,6 +242,23 @@ final class HistoryViewController: BaseViewController {
         let detailVC = MissionDetailViewController(missionID: missionID)
         detailVC.delegate = self
         navigationController?.pushViewController(detailVC, animated: true)
+    }
+}
+
+// MARK: - UIScrollViewDelegate
+
+extension HistoryViewController: UIScrollViewDelegate {
+    func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        let appearance = scrollView.contentOffset.y > 0 ? standardNavAppearance : transparentNavAppearance
+        applyNavBarAppearance(appearance)
+    }
+}
+
+// MARK: - MissionSetupDelegate
+
+extension HistoryViewController: MissionSetupDelegate {
+    func missionSetupDidComplete(_ vc: MissionSetupViewController) {
+        viewWillAppearRelay.accept(())
     }
 }
 
