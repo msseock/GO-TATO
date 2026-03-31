@@ -407,7 +407,8 @@ final class DashboardViewModel: BaseViewModel {
             lng: current.coordinate.longitude
         )
 
-        if distance <= 50 {
+        // 100미터 이내면 출근 인증 버튼 활성화
+        if distance <= 100 {
             return (
                 .nearDestination(
                     locationName: locationName,
