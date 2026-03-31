@@ -117,7 +117,7 @@ final class HistoryViewController: BaseViewController {
 
     override func configureView() {
         view.backgroundColor = GTTColor.bgPrimary
-        navigationItem.title = "출근 기록"
+        navigationItem.title = "기록 모아보기"
         navigationItem.rightBarButtonItem = addMissionBarButtonItem
 
         setMissionButtonView.onTap = { [weak self] in
