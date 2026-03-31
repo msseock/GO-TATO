@@ -2,8 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>위치 기반 출근 미션을 수행하기 위해 위치 권한을 허용해주세요.</string>
 	<key>UIAppFonts</key>
 	<array>
 		<string>Pretendard-Thin.otf</string>
@@ -16,10 +14,6 @@
 		<string>Pretendard-Bold.otf</string>
 		<string>Pretendard-Black.otf</string>
 	</array>
-	<key>CFBundleIdentifier</key>
-	<string></string>
-	<key>UIUserInterfaceStyle</key>
-	<string>Light</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
