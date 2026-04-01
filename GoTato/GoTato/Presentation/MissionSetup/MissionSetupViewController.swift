@@ -51,6 +51,7 @@ final class MissionSetupViewController: BaseViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         setupChildViewControllers()
+        NotificationService.shared.requestAuthorization()
     }
 
     override func configureHierarchy() {
