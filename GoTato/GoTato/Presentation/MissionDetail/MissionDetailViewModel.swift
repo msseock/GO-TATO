@@ -257,6 +257,10 @@ final class MissionDetailViewModel: BaseViewModel {
             .flatMapLatest { [weak self] _ -> Observable<Result<Void, Error>> in
                 guard let self else { return .just(.failure(AppError.unknown)) }
                 return self.missionRepo.deleteMission(missionID: self.missionID)
+                    .do(onSuccess: { [weak self] in
+                        guard let self else { return }
+                        GeofenceManager.shared.unregisterRegion(for: self.missionID)
+                    })
                     .map { Result<Void, Error>.success(()) }
                     .catch { .just(.failure($0)) }
                     .asObservable()

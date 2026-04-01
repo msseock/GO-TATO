@@ -38,6 +38,16 @@ final class GeofenceManager {
         )
     }
 
+    func registerRegion(missionID: UUID, latitude: Double, longitude: Double) {
+        let center = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+        let identifier = Self.regionPrefix + missionID.uuidString
+        locationService.startMonitoringRegion(
+            center: center,
+            radius: Self.regionRadius,
+            identifier: identifier
+        )
+    }
+
     func unregisterRegion(for missionID: UUID) {
         let identifier = Self.regionPrefix + missionID.uuidString
         locationService.stopMonitoringRegion(identifier: identifier)

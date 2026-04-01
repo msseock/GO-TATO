@@ -51,6 +51,18 @@ final class MissionSetupViewModel: BaseViewModel {
                         location: loc
                     )
                 }
+                .do(onSuccess: { missionID in
+                    // Always 위치 권한 요청 (시스템이 적절한 시점에 프롬프트 표시)
+                    LocationService.shared.requestAlwaysAuthorization()
+
+                    // 생성된 미션의 지오펜스 리전 등록
+                    GeofenceManager.shared.registerRegion(
+                        missionID: missionID,
+                        latitude: location.lati,
+                        longitude: location.longi
+                    )
+                })
+                .map { _ in }
                 .asObservable()
                 .materialize()
             }

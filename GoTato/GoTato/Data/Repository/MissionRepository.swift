@@ -12,7 +12,7 @@ protocol MissionRepositoryProtocol {
     func fetchActiveMissions() -> Single<[Mission]>
     func fetchTodayActiveMissions() -> Single<[Mission]>
     func fetchMission(id: UUID) -> Single<Mission?>
-    func createMission(title: String, deadline: Date, startDate: Date, endDate: Date, location: Location) -> Single<Void>
+    func createMission(title: String, deadline: Date, startDate: Date, endDate: Date, location: Location) -> Single<UUID>
     func updateTitle(missionID: UUID, newTitle: String) -> Single<Void>
     func updateDeadline(missionID: UUID, newDeadline: Date) -> Single<Void>
     func extendMission(missionID: UUID, newEndDate: Date) -> Single<Void>
@@ -122,7 +122,7 @@ final class MissionRepository: MissionRepositoryProtocol {
     /// 미션 생성.
     /// 사이드 이펙트: startDate~endDate 각 날짜에 Attendance 일괄 생성.
     /// DATABASE.md 제약 조건: 기간 오버랩 미션 10개 제한, deadline ±5분 충돌, 기간 1달 초과.
-    func createMission(title: String, deadline: Date, startDate: Date, endDate: Date, location: Location) -> Single<Void> {
+    func createMission(title: String, deadline: Date, startDate: Date, endDate: Date, location: Location) -> Single<UUID> {
         let locationID = location.objectID
 
         return stack.performBackgroundTask { ctx in
@@ -194,6 +194,8 @@ final class MissionRepository: MissionRepositoryProtocol {
             #if DEBUG
             print("[DB][Mission] ✅ createMission 완료 - title: \"\(title)\", Attendance \(days.count)개 생성")
             #endif
+
+            return mission.id!
         }
     }
 
