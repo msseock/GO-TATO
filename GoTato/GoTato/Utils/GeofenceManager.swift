@@ -5,6 +5,7 @@
 
 import CoreLocation
 import CoreData
+import RxCocoa
 import RxSwift
 
 final class GeofenceManager {
