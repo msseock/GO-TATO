@@ -31,9 +31,14 @@
 			</array>
 		</dict>
 	</dict>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>출근 인증을 위해 현재 위치를 확인합니다.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>미션 위치 근처에 도착하면 알림을 보내드려요. 위치 권한을 '항상 허용'으로 설정해 주세요.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
+		<string>location</string>
 	</array>
 </dict>
 </plist>
