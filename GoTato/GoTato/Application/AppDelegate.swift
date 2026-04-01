@@ -15,6 +15,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         _ = CoreDataStack.shared   // 초기화 트리거 (lazy 방지)
         _ = GeofenceManager.shared // 지오펜스 이벤트 구독 시작
+        GeofenceManager.shared.restoreRegionsIfNeeded()
         NMFAuthManager.shared().ncpKeyId = SecretConstants.naverMapClientID
 
         UNUserNotificationCenter.current().delegate = self
