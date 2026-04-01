@@ -25,6 +25,21 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             window?.rootViewController = nav
         }
         window?.makeKeyAndVisible()
+
+        // Cold start 시 알림 탭으로 실행된 경우 처리
+        if let notificationResponse = connectionOptions.notificationResponse {
+            let userInfo = notificationResponse.notification.request.content.userInfo
+            if let missionIDString = userInfo["missionID"] as? String,
+               let missionID = UUID(uuidString: missionIDString) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    NotificationCenter.default.post(
+                        name: .didTapGeofenceNotification,
+                        object: nil,
+                        userInfo: ["missionID": missionID]
+                    )
+                }
+            }
+        }
     }
 
     func sceneDidDisconnect(_ scene: UIScene) { }
@@ -39,6 +54,10 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             .batchMarkFailed()
             .subscribe(onSuccess: { _ in }, onFailure: { _ in })
             .disposed(by: disposeBag)
+
+        // 만료 미션의 지오펜스 리전 정리 + 누락 리전 복원
+        GeofenceManager.shared.cleanUpExpiredRegions()
+        GeofenceManager.shared.restoreRegionsIfNeeded()
     }
 
     func sceneDidEnterBackground(_ scene: UIScene) {
