@@ -70,7 +70,10 @@ final class DashboardPageContentViewController: UIViewController {
 
     // MARK: - Public
 
+    private(set) var currentState: DashboardMissionState?
+
     func configure(state: DashboardMissionState) {
+        currentState = state
         if isViewLoaded {
             applyState(state)
         } else {

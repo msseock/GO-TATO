@@ -49,6 +49,11 @@ final class DashboardViewController: BaseViewController {
 
     // MARK: - Lifecycle
 
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        observeGeofenceNotification()
+    }
+
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         navigationController?.setNavigationBarHidden(true, animated: animated)
@@ -273,6 +278,36 @@ final class DashboardViewController: BaseViewController {
         let vc = MissionSetupViewController(isFromOnboarding: false)
         vc.delegate = self
         present(vc, animated: true)
+    }
+
+    // MARK: - Geofence Notification
+
+    private func observeGeofenceNotification() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleGeofenceNotification(_:)),
+            name: .didTapGeofenceNotification,
+            object: nil
+        )
+    }
+
+    @objc private func handleGeofenceNotification(_ notification: Notification) {
+        guard let missionID = notification.userInfo?["missionID"] as? UUID else { return }
+
+        // 대시보드 탭으로 전환
+        tabBarController?.selectedIndex = 0
+
+        // 해당 missionID의 페이지 인덱스를 찾아서 이동
+        guard let targetIndex = pageVCs.firstIndex(where: { vc in
+            guard let state = vc.currentState else { return false }
+            return state.missionID == missionID
+        }) else { return }
+
+        guard let targetVC = pageVCs[safe: targetIndex] else { return }
+        let direction: UIPageViewController.NavigationDirection = targetIndex > currentPageIndex ? .forward : .reverse
+        pageVC.setViewControllers([targetVC], direction: direction, animated: false)
+        currentPageIndex = targetIndex
+        pageControl.currentPage = targetIndex
     }
 }
 
