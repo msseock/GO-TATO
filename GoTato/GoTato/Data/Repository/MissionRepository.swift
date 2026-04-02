@@ -12,7 +12,7 @@ protocol MissionRepositoryProtocol {
     func fetchActiveMissions() -> Single<[Mission]>
     func fetchTodayActiveMissions() -> Single<[Mission]>
     func fetchMission(id: UUID) -> Single<Mission?>
-    func createMission(title: String, deadline: Date, startDate: Date, endDate: Date, location: Location) -> Single<UUID>
+    func createMission(title: String, deadline: Date, startDate: Date, endDate: Date, selectedDays: Set<Int>, location: Location) -> Single<UUID>
     func updateTitle(missionID: UUID, newTitle: String) -> Single<Void>
     func updateDeadline(missionID: UUID, newDeadline: Date) -> Single<Void>
     func extendMission(missionID: UUID, newEndDate: Date) -> Single<Void>
@@ -122,7 +122,7 @@ final class MissionRepository: MissionRepositoryProtocol {
     /// 미션 생성.
     /// 사이드 이펙트: startDate~endDate 각 날짜에 Attendance 일괄 생성.
     /// DATABASE.md 제약 조건: 기간 오버랩 미션 10개 제한, deadline ±5분 충돌, 기간 1달 초과.
-    func createMission(title: String, deadline: Date, startDate: Date, endDate: Date, location: Location) -> Single<UUID> {
+    func createMission(title: String, deadline: Date, startDate: Date, endDate: Date, selectedDays: Set<Int>, location: Location) -> Single<UUID> {
         let locationID = location.objectID
 
         return stack.performBackgroundTask { ctx in
@@ -182,17 +182,22 @@ final class MissionRepository: MissionRepositoryProtocol {
             // NSManagedObject는 컨텍스트 간 직접 전달 불가 → objectID로 재조회
             mission.location  = ctx.object(with: locationID) as? Location
 
-            // Attendance 일괄 생성 (사이드 이펙트)
+            // Attendance 일괄 생성 (사이드 이펙트) — 선택된 요일만
+            let cal = Calendar.current
             let days = dateService.calendarDays(from: startDate, through: endDate)
+            var attendanceCount = 0
             for day in days {
+                let weekday = cal.component(.weekday, from: day)
+                guard selectedDays.contains(weekday) else { continue }
                 let attendance = Attendance(context: ctx)
                 attendance.planDate = dateService.combining(date: day, timeFrom: deadline)
                 attendance.mission  = mission
+                attendanceCount += 1
                 // status 기본값 0 (pending) — CoreData 모델 default 설정
             }
 
             #if DEBUG
-            print("[DB][Mission] ✅ createMission 완료 - title: \"\(title)\", Attendance \(days.count)개 생성")
+            print("[DB][Mission] ✅ createMission 완료 - title: \"\(title)\", Attendance \(attendanceCount)개 생성 (전체 \(days.count)일 중 선택 요일: \(selectedDays.sorted()))")
             #endif
 
             return mission.id!

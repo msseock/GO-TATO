@@ -11,21 +11,20 @@ import RxCocoa
 // MARK: - MissionRoutine
 
 struct MissionRoutine {
-    enum Mode { case daily, once }
-    let mode: Mode
     let startDate: Date
-    let endDate: Date?   // mode == .daily 일 때만 유효
+    let endDate: Date
+    let selectedDays: Set<Int>   // 1=일, 2=월, 3=화, 4=수, 5=목, 6=금, 7=토
     let deadline: Date
 }
 
 // MARK: - DateCardType
 
 enum DateCardType {
-    case start, end, single, time
+    case start, end, time
 
     var icon: String {
         switch self {
-        case .start, .end, .single: return "calendar"
+        case .start, .end: return "calendar"
         case .time: return "clock"
         }
     }
@@ -34,7 +33,6 @@ enum DateCardType {
         switch self {
         case .start:  return "시작하는 날"
         case .end:    return "끝나는 날"
-        case .single: return "날짜"
         case .time:   return "도착목표 시간"
         }
     }
@@ -57,32 +55,27 @@ final class RoutineSelectViewController: BaseViewController {
     private let disposeBag = DisposeBag()
 
     // Inputs (Subjects for ViewModel)
-    private let segmentSubject = PublishSubject<Int>()
     private let startDateSubject = PublishSubject<Date>()
     private let endDateSubject = PublishSubject<Date>()
-    private let singleDateSubject = PublishSubject<Date>()
+    private let dayToggledSubject = PublishSubject<Int>()
+    private let allDaysToggledSubject = PublishSubject<Void>()
     private let timeSubject = PublishSubject<Date>()
     private let ctaTappedSubject = PublishSubject<Void>()
 
     // Current State for Picker bounds
     private var currentStartDate: Date = Date()
     private var currentEndDate: Date = Date()
-    private var currentSingleDate: Date = Date()
     private var currentTime: Date = Date()
 
     // MARK: - UI Components
 
     private let titleLabel = UILabel()
-    private let segmentControl = GTTSegmentControl(titles: ["매일매일", "하루만"])
 
-    // 매일매일 카드
     private let startCard = DateCard(type: .start)
     private let endCard = DateCard(type: .end)
 
-    // 하루만 카드
-    private let singleCard = DateCard(type: .single)
+    private let daySelector = DaySelector()
 
-    // 시간 카드
     private let timeCard = DateCard(type: .time)
 
     private let ctaButton = GTTMainButton(
@@ -102,10 +95,9 @@ final class RoutineSelectViewController: BaseViewController {
 
     override func configureHierarchy() {
         view.addSubview(titleLabel)
-        view.addSubview(segmentControl)
         view.addSubview(startCard)
         view.addSubview(endCard)
-        view.addSubview(singleCard)
+        view.addSubview(daySelector)
         view.addSubview(timeCard)
         view.addSubview(ctaButton)
     }
@@ -116,14 +108,8 @@ final class RoutineSelectViewController: BaseViewController {
             make.leading.trailing.equalToSuperview().inset(24)
         }
 
-        segmentControl.snp.makeConstraints { make in
-            make.top.equalTo(titleLabel.snp.bottom).offset(40)
-            make.leading.trailing.equalToSuperview().inset(24)
-            make.height.equalTo(60)
-        }
-
         startCard.snp.makeConstraints { make in
-            make.top.equalTo(segmentControl.snp.bottom).offset(16)
+            make.top.equalTo(titleLabel.snp.bottom).offset(40)
             make.leading.trailing.equalToSuperview().inset(24)
         }
 
@@ -132,14 +118,13 @@ final class RoutineSelectViewController: BaseViewController {
             make.leading.trailing.equalToSuperview().inset(24)
         }
 
-        singleCard.snp.makeConstraints { make in
-            make.top.equalTo(segmentControl.snp.bottom).offset(16)
+        daySelector.snp.makeConstraints { make in
+            make.top.equalTo(endCard.snp.bottom).offset(16)
             make.leading.trailing.equalToSuperview().inset(24)
         }
 
-        // 초기(매일매일 모드): endCard 아래에 위치
         timeCard.snp.makeConstraints { make in
-            make.top.equalTo(endCard.snp.bottom).offset(12)
+            make.top.equalTo(daySelector.snp.bottom).offset(12)
             make.leading.trailing.equalToSuperview().inset(24)
         }
 
@@ -158,39 +143,33 @@ final class RoutineSelectViewController: BaseViewController {
         titleLabel.textColor = GTTColor.textPrimary
         titleLabel.numberOfLines = 2
 
-        segmentControl.onSelectionChanged = { [weak self] index in
-            self?.segmentSubject.onNext(index)
-        }
-
         startCard.onTap = { [weak self] in self?.handleStartCardTap() }
         endCard.onTap = { [weak self] in self?.handleEndCardTap() }
-        singleCard.onTap = { [weak self] in self?.handleSingleCardTap() }
         timeCard.onTap = { [weak self] in self?.handleTimeCardTap() }
 
-        ctaButton.onTap = { [weak self] in self?.ctaTappedSubject.onNext(()) }
+        daySelector.onDayToggled = { [weak self] day in
+            self?.dayToggledSubject.onNext(day)
+        }
+        daySelector.onAllToggled = { [weak self] in
+            self?.allDaysToggledSubject.onNext(())
+        }
 
-        singleCard.isHidden = true
+        ctaButton.onTap = { [weak self] in self?.ctaTappedSubject.onNext(()) }
     }
 
     // MARK: - Binding
 
     private func bindViewModel() {
         let input = RoutineSelectViewModel.Input(
-            segmentSelected: segmentSubject.asObservable(),
             startDateSelected: startDateSubject.asObservable(),
             endDateSelected: endDateSubject.asObservable(),
-            singleDateSelected: singleDateSubject.asObservable(),
+            dayToggled: dayToggledSubject.asObservable(),
+            allDaysToggled: allDaysToggledSubject.asObservable(),
             timeSelected: timeSubject.asObservable(),
             ctaTapped: ctaTappedSubject.asObservable()
         )
 
         let output = viewModel.transform(input: input)
-
-        output.mode
-            .drive(onNext: { [weak self] mode in
-                self?.updateUIMode(mode)
-            })
-            .disposed(by: disposeBag)
 
         output.startDate
             .drive(onNext: { [weak self] date in
@@ -206,17 +185,46 @@ final class RoutineSelectViewController: BaseViewController {
             })
             .disposed(by: disposeBag)
 
-        output.singleDate
-            .drive(onNext: { [weak self] date in
-                self?.currentSingleDate = date
-                self?.singleCard.setDate(date)
-            })
-            .disposed(by: disposeBag)
-
         output.selectedTime
             .drive(onNext: { [weak self] time in
                 self?.currentTime = time
                 self?.timeCard.setTime(time)
+            })
+            .disposed(by: disposeBag)
+
+        output.showDaySelector
+            .drive(onNext: { [weak self] show in
+                guard let self else { return }
+                self.daySelector.isHidden = !show
+                self.timeCard.snp.remakeConstraints { make in
+                    if show {
+                        make.top.equalTo(self.daySelector.snp.bottom).offset(12)
+                    } else {
+                        make.top.equalTo(self.endCard.snp.bottom).offset(12)
+                    }
+                    make.leading.trailing.equalToSuperview().inset(24)
+                }
+                UIView.animate(withDuration: 0.2) {
+                    self.view.layoutIfNeeded()
+                }
+            })
+            .disposed(by: disposeBag)
+
+        output.availableDays
+            .drive(onNext: { [weak self] days in
+                self?.daySelector.updateAvailableDays(days)
+            })
+            .disposed(by: disposeBag)
+
+        output.selectedDays
+            .drive(onNext: { [weak self] days in
+                self?.daySelector.updateSelectedDays(days)
+            })
+            .disposed(by: disposeBag)
+
+        output.isCtaEnabled
+            .drive(onNext: { [weak self] enabled in
+                self?.ctaButton.isEnabled = enabled
             })
             .disposed(by: disposeBag)
 
@@ -226,27 +234,6 @@ final class RoutineSelectViewController: BaseViewController {
                 self.onRoutineConfirmed?(location, routine)
             })
             .disposed(by: disposeBag)
-    }
-
-    private func updateUIMode(_ mode: SegmentMode) {
-        if mode == .once {
-            timeCard.snp.remakeConstraints { make in
-                make.top.equalTo(singleCard.snp.bottom).offset(12)
-                make.leading.trailing.equalToSuperview().inset(24)
-            }
-        } else {
-            timeCard.snp.remakeConstraints { make in
-                make.top.equalTo(endCard.snp.bottom).offset(12)
-                make.leading.trailing.equalToSuperview().inset(24)
-            }
-        }
-
-        UIView.animate(withDuration: 0.2) {
-            self.startCard.isHidden = mode == .once
-            self.endCard.isHidden = mode == .once
-            self.singleCard.isHidden = mode == .daily
-            self.view.layoutIfNeeded()
-        }
     }
 
     // MARK: - Picker Actions
@@ -262,20 +249,11 @@ final class RoutineSelectViewController: BaseViewController {
 
     private func handleEndCardTap() {
         let cal = Calendar.current
-        let minEnd = cal.date(byAdding: .day, value: 1, to: currentStartDate) ?? currentStartDate
+        let minEnd = currentStartDate
         let maxEnd = cal.date(byAdding: .month, value: 1, to: currentStartDate) ?? currentStartDate
         let sheet = DatePickerSheetViewController(initial: currentEndDate, minDate: minEnd, maxDate: maxEnd)
         sheet.onConfirm = { [weak self] selected in
             self?.endDateSubject.onNext(selected)
-        }
-        present(sheet, animated: true)
-    }
-
-    private func handleSingleCardTap() {
-        let today = Calendar.current.startOfDay(for: Date())
-        let sheet = DatePickerSheetViewController(initial: currentSingleDate, minDate: today, maxDate: nil)
-        sheet.onConfirm = { [weak self] selected in
-            self?.singleDateSubject.onNext(selected)
         }
         present(sheet, animated: true)
     }
@@ -289,94 +267,129 @@ final class RoutineSelectViewController: BaseViewController {
     }
 }
 
-// MARK: - Custom Views
+// MARK: - DaySelector
 
-private final class GTTSegmentControl: UIView {
+private final class DaySelector: UIView {
 
-    var onSelectionChanged: ((Int) -> Void)?
+    var onDayToggled: ((Int) -> Void)?
+    var onAllToggled: (() -> Void)?
 
-    private let background = UIView()
-    private let indicator = UIView()
-    private var buttons: [UIButton] = []
-    private var indicatorLeadingConstraint: Constraint?
-    private var selectedIndex = 0
-    private let titles: [String]
+    // 일=1, 월=2, 화=3, 수=4, 목=5, 금=6, 토=7
+    private let dayLabels = ["일", "월", "화", "수", "목", "금", "토"]
+    private let dayValues = [1, 2, 3, 4, 5, 6, 7]
 
-    init(titles: [String]) {
-        self.titles = titles
-        super.init(frame: .zero)
+    private var dayButtons: [UIButton] = []
+    private let allToggle = UISwitch()
+    private let allLabel = UILabel()
+
+    private var availableDays: Set<Int> = Set(1...7)
+    private var selectedDays: Set<Int> = Set(1...7)
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
         setup()
     }
 
     required init?(coder: NSCoder) { fatalError() }
 
     private func setup() {
-        backgroundColor = GTTColor.surface
-        layer.cornerRadius = 30
+        // "매일" 토글
+        allLabel.text = "매일"
+        allLabel.font = GTTFont.calendarDay.font
+        allLabel.textColor = GTTColor.textPrimary
 
-        addSubview(indicator)
-        indicator.backgroundColor = GTTColor.brand
-        indicator.layer.cornerRadius = 26
+        allToggle.onTintColor = GTTColor.brand
+        allToggle.isOn = true
+        allToggle.addTarget(self, action: #selector(didToggleAll), for: .valueChanged)
 
-        for (i, title) in titles.enumerated() {
+        let toggleRow = UIStackView(arrangedSubviews: [allLabel, allToggle])
+        toggleRow.axis = .horizontal
+        toggleRow.alignment = .center
+        toggleRow.spacing = 8
+        addSubview(toggleRow)
+
+        // 요일 버튼 생성
+        let buttonStack = UIStackView()
+        buttonStack.axis = .horizontal
+        buttonStack.distribution = .fillEqually
+        buttonStack.spacing = 6
+
+        for (i, label) in dayLabels.enumerated() {
             let btn = UIButton()
-            btn.setTitle(title, for: .normal)
-            btn.tag = i
-            btn.titleLabel?.font = GTTFont.segmentLabel.font
-            btn.addTarget(self, action: #selector(didTapSegment(_:)), for: .touchUpInside)
-            buttons.append(btn)
-            addSubview(btn)
+            btn.setTitle(label, for: .normal)
+            btn.titleLabel?.font = GTTFont.calendarDay.font
+            btn.layer.cornerRadius = 20
+            btn.layer.borderWidth = 1.5
+            btn.tag = dayValues[i]
+            btn.addTarget(self, action: #selector(didTapDay(_:)), for: .touchUpInside)
+            dayButtons.append(btn)
+            buttonStack.addArrangedSubview(btn)
         }
 
-        buttons.first?.setTitleColor(GTTColor.white, for: .normal)
-        buttons.dropFirst().forEach { $0.setTitleColor(GTTColor.textQuiet, for: .normal) }
+        addSubview(buttonStack)
 
-        setupConstraints()
+        toggleRow.snp.makeConstraints { make in
+            make.top.equalToSuperview()
+            make.leading.equalToSuperview()
+        }
+
+        buttonStack.snp.makeConstraints { make in
+            make.top.equalTo(toggleRow.snp.bottom).offset(10)
+            make.leading.trailing.equalToSuperview()
+            make.height.equalTo(40)
+            make.bottom.equalToSuperview()
+        }
+
+        applyStyles()
     }
 
-    private func setupConstraints() {
-        let padding: CGFloat = 4
-        let count = CGFloat(titles.count)
+    func updateAvailableDays(_ days: Set<Int>) {
+        availableDays = days
+        applyStyles()
+    }
 
-        indicator.snp.makeConstraints { make in
-            make.top.bottom.equalToSuperview().inset(padding)
-            make.width.equalToSuperview().multipliedBy(1.0 / count).offset(-padding)
-            indicatorLeadingConstraint = make.leading.equalToSuperview().offset(padding).constraint
-        }
+    func updateSelectedDays(_ days: Set<Int>) {
+        selectedDays = days
+        applyStyles()
+    }
 
-        for (i, btn) in buttons.enumerated() {
-            btn.snp.makeConstraints { make in
-                make.top.bottom.equalToSuperview().inset(padding)
-                make.width.equalToSuperview().multipliedBy(1.0 / count)
-                if i == 0 {
-                    make.leading.equalToSuperview()
-                } else {
-                    make.leading.equalTo(buttons[i - 1].snp.trailing)
-                }
+    private func applyStyles() {
+        let allAvailableSelected = availableDays.isSubset(of: selectedDays) && !availableDays.isEmpty
+        allToggle.setOn(allAvailableSelected, animated: true)
+
+        for btn in dayButtons {
+            let day = btn.tag
+            let available = availableDays.contains(day)
+            let selected = selectedDays.contains(day)
+
+            btn.isEnabled = available
+
+            if !available {
+                btn.backgroundColor = GTTColor.surface
+                btn.setTitleColor(GTTColor.textMuted, for: .normal)
+                btn.layer.borderColor = UIColor.clear.cgColor
+            } else if selected {
+                btn.backgroundColor = GTTColor.brand
+                btn.setTitleColor(GTTColor.white, for: .normal)
+                btn.layer.borderColor = GTTColor.brand.cgColor
+            } else {
+                btn.backgroundColor = GTTColor.white
+                btn.setTitleColor(GTTColor.textPrimary, for: .normal)
+                btn.layer.borderColor = GTTColor.divider.cgColor
             }
         }
     }
 
-    @objc private func didTapSegment(_ sender: UIButton) {
-        let index = sender.tag
-        guard index != selectedIndex else { return }
-        selectedIndex = index
+    @objc private func didTapDay(_ sender: UIButton) {
+        onDayToggled?(sender.tag)
+    }
 
-        let segmentWidth = bounds.width / CGFloat(titles.count)
-        let targetLeading: CGFloat = index == 0 ? 4 : segmentWidth + 4
-
-        UIView.animate(withDuration: 0.25, delay: 0, options: .curveEaseInOut) {
-            self.indicatorLeadingConstraint?.update(offset: targetLeading)
-            self.layoutIfNeeded()
-        }
-
-        buttons.enumerated().forEach { i, btn in
-            btn.setTitleColor(i == index ? GTTColor.white : GTTColor.textQuiet, for: .normal)
-        }
-
-        onSelectionChanged?(index)
+    @objc private func didToggleAll() {
+        onAllToggled?()
     }
 }
+
+// MARK: - DateCard
 
 private final class DateCard: UIView {
 
@@ -460,4 +473,3 @@ private final class DateCard: UIView {
 
     @objc private func tapped() { onTap?() }
 }
-

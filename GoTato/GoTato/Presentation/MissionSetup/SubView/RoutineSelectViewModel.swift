@@ -7,67 +7,67 @@ import Foundation
 import RxSwift
 import RxCocoa
 
-enum SegmentMode { case daily, once }
-
 final class RoutineSelectViewModel: BaseViewModel {
 
     struct Input {
-        let segmentSelected: Observable<Int>
         let startDateSelected: Observable<Date>
         let endDateSelected: Observable<Date>
-        let singleDateSelected: Observable<Date>
+        let dayToggled: Observable<Int>
+        let allDaysToggled: Observable<Void>
         let timeSelected: Observable<Date>
         let ctaTapped: Observable<Void>
     }
 
     struct Output {
-        let mode: Driver<SegmentMode>
         let startDate: Driver<Date>
         let endDate: Driver<Date>
-        let singleDate: Driver<Date>
         let selectedTime: Driver<Date>
+        let showDaySelector: Driver<Bool>
+        let availableDays: Driver<Set<Int>>
+        let selectedDays: Driver<Set<Int>>
+        let isCtaEnabled: Driver<Bool>
         let routineConfirmed: Signal<MissionRoutine>
     }
 
     private let disposeBag = DisposeBag()
 
     func transform(input: Input) -> Output {
-        let initialStartDate = Calendar.current.startOfDay(for: Date())
-        let initialEndDate = Calendar.current.date(byAdding: .day, value: 31, to: initialStartDate) ?? Date()
-        let initialSingleDate = initialStartDate
-        
-        var components = Calendar.current.dateComponents([.year, .month, .day], from: Date())
+        let cal = Calendar.current
+        let initialStartDate = cal.startOfDay(for: Date())
+        let initialEndDate = cal.date(byAdding: .day, value: 31, to: initialStartDate) ?? Date()
+
+        var components = cal.dateComponents([.year, .month, .day], from: Date())
         components.hour = 9
         components.minute = 0
         components.second = 0
-        let initialTime = Calendar.current.date(from: components) ?? Date()
+        let initialTime = cal.date(from: components) ?? Date()
 
-        let mode = BehaviorRelay<SegmentMode>(value: .daily)
         let startDate = BehaviorRelay<Date>(value: initialStartDate)
         let endDate = BehaviorRelay<Date>(value: initialEndDate)
-        let singleDate = BehaviorRelay<Date>(value: initialSingleDate)
         let selectedTime = BehaviorRelay<Date>(value: initialTime)
+        let selectedDays = BehaviorRelay<Set<Int>>(value: Set(1...7))
 
-        input.segmentSelected
-            .map { $0 == 0 ? SegmentMode.daily : .once }
-            .do(onNext: { newMode in
-                if newMode == .once {
-                    singleDate.accept(startDate.value)
-                } else {
-                    startDate.accept(singleDate.value)
-                    let newEnd = Calendar.current.date(byAdding: .day, value: 31, to: startDate.value) ?? startDate.value
-                    endDate.accept(newEnd)
-                }
-            })
-            .bind(to: mode)
-            .disposed(by: disposeBag)
+        // 시작일~종료일 범위에 존재하는 요일 계산
+        let availableDays: Observable<Set<Int>> = Observable
+            .combineLatest(startDate.asObservable(), endDate.asObservable())
+            .map { start, end in
+                Self.computeAvailableDays(from: start, to: end)
+            }
+            .share(replay: 1)
 
+        // 시작일 = 종료일이면 요일 선택기 숨김
+        let showDaySelector: Observable<Bool> = Observable
+            .combineLatest(startDate.asObservable(), endDate.asObservable())
+            .map { start, end in
+                cal.startOfDay(for: start) != cal.startOfDay(for: end)
+            }
+
+        // 시작일 변경
         input.startDateSelected
             .do(onNext: { newStart in
-                let cal = Calendar.current
                 let minEnd = cal.date(byAdding: .day, value: 1, to: newStart) ?? newStart
                 let maxEnd = cal.date(byAdding: .month, value: 1, to: newStart) ?? newStart
-                
+
                 if endDate.value < minEnd || endDate.value > maxEnd {
                     let adjustedEnd = cal.date(byAdding: .day, value: 7, to: newStart) ?? newStart
                     endDate.accept(adjustedEnd)
@@ -80,39 +80,95 @@ final class RoutineSelectViewModel: BaseViewModel {
             .bind(to: endDate)
             .disposed(by: disposeBag)
 
-        input.singleDateSelected
-            .bind(to: singleDate)
-            .disposed(by: disposeBag)
-
         input.timeSelected
             .bind(to: selectedTime)
             .disposed(by: disposeBag)
 
+        // availableDays가 변경되면 disabled된 요일을 selectedDays에서 제거
+        availableDays
+            .subscribe(onNext: { available in
+                let filtered = selectedDays.value.intersection(available)
+                if filtered != selectedDays.value {
+                    selectedDays.accept(filtered.isEmpty ? available : filtered)
+                }
+            })
+            .disposed(by: disposeBag)
+
+        // 개별 요일 토글
+        input.dayToggled
+            .subscribe(onNext: { day in
+                var current = selectedDays.value
+                if current.contains(day) {
+                    current.remove(day)
+                } else {
+                    current.insert(day)
+                }
+                selectedDays.accept(current)
+            })
+            .disposed(by: disposeBag)
+
+        // "매일" 버튼 토글
+        input.allDaysToggled
+            .withLatestFrom(availableDays)
+            .subscribe(onNext: { available in
+                let allSelected = available.isSubset(of: selectedDays.value)
+                selectedDays.accept(allSelected ? [] : available)
+            })
+            .disposed(by: disposeBag)
+
+        let isCtaEnabled = selectedDays.asObservable()
+            .map { !$0.isEmpty }
+
         let routineConfirmed = input.ctaTapped
             .withLatestFrom(Observable.combineLatest(
-                mode.asObservable(),
                 startDate.asObservable(),
                 endDate.asObservable(),
-                singleDate.asObservable(),
-                selectedTime.asObservable()
+                selectedDays.asObservable(),
+                selectedTime.asObservable(),
+                showDaySelector
             ))
-            .map { currentMode, start, end, single, time -> MissionRoutine in
-                switch currentMode {
-                case .daily:
-                    return MissionRoutine(mode: .daily, startDate: start, endDate: end, deadline: time)
-                case .once:
-                    return MissionRoutine(mode: .once, startDate: single, endDate: nil, deadline: time)
+            .map { start, end, days, time, showSelector -> MissionRoutine in
+                if showSelector {
+                    return MissionRoutine(startDate: start, endDate: end, selectedDays: days, deadline: time)
+                } else {
+                    // 시작일 = 종료일: 해당 날의 요일만 포함
+                    let weekday = cal.component(.weekday, from: start)
+                    return MissionRoutine(startDate: start, endDate: start, selectedDays: [weekday], deadline: time)
                 }
             }
             .asSignal(onErrorSignalWith: .empty())
 
         return Output(
-            mode: mode.asDriver(),
             startDate: startDate.asDriver(),
             endDate: endDate.asDriver(),
-            singleDate: singleDate.asDriver(),
             selectedTime: selectedTime.asDriver(),
+            showDaySelector: showDaySelector.asDriver(onErrorJustReturn: true),
+            availableDays: availableDays.asDriver(onErrorJustReturn: Set(1...7)),
+            selectedDays: selectedDays.asDriver(),
+            isCtaEnabled: isCtaEnabled.asDriver(onErrorJustReturn: false),
             routineConfirmed: routineConfirmed
         )
+    }
+
+    /// 시작일~종료일 범위에 실제 존재하는 요일 집합 계산
+    private static func computeAvailableDays(from start: Date, to end: Date) -> Set<Int> {
+        let cal = Calendar.current
+        let startDay = cal.startOfDay(for: start)
+        let endDay = cal.startOfDay(for: end)
+
+        let dayCount = cal.dateComponents([.day], from: startDay, to: endDay).day ?? 0
+
+        // 7일 이상이면 모든 요일 존재
+        if dayCount >= 7 {
+            return Set(1...7)
+        }
+
+        var result = Set<Int>()
+        var current = startDay
+        while current <= endDay {
+            result.insert(cal.component(.weekday, from: current))
+            current = cal.date(byAdding: .day, value: 1, to: current)!
+        }
+        return result
     }
 }

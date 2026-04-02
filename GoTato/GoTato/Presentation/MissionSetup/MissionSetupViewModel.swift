@@ -25,17 +25,8 @@ final class MissionSetupViewModel: BaseViewModel {
     func transform(input: Input) -> Output {
         let missionResult = input.createMission
             .flatMapLatest { location, routine -> Observable<Event<Void>> in
-                let startDate: Date
-                let endDate: Date
-
-                switch routine.mode {
-                case .daily:
-                    startDate = Calendar.current.startOfDay(for: routine.startDate)
-                    endDate = Calendar.current.startOfDay(for: routine.endDate ?? routine.startDate)
-                case .once:
-                    startDate = Calendar.current.startOfDay(for: routine.startDate)
-                    endDate = startDate
-                }
+                let startDate = Calendar.current.startOfDay(for: routine.startDate)
+                let endDate = Calendar.current.startOfDay(for: routine.endDate)
 
                 return LocationRepository.shared.findOrCreateLocation(
                     name: location.name,
@@ -48,6 +39,7 @@ final class MissionSetupViewModel: BaseViewModel {
                         deadline: routine.deadline,
                         startDate: startDate,
                         endDate: endDate,
+                        selectedDays: routine.selectedDays,
                         location: loc
                     )
                 }
