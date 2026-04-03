@@ -73,7 +73,14 @@ final class LocationSelectViewController: BaseViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         setupKeyboardObservers()
+        setupKeyboardDismissGesture()
         bindViewModel()
+    }
+
+    private func setupKeyboardDismissGesture() {
+        let tap = UITapGestureRecognizer(target: view, action: #selector(UIView.endEditing(_:)))
+        tap.cancelsTouchesInView = false
+        view.addGestureRecognizer(tap)
     }
 
     // MARK: - BaseViewController Overrides
@@ -224,6 +231,12 @@ final class LocationSelectViewController: BaseViewController {
     }
 
     private func setupInternalActions() {
+        searchField.rx.controlEvent(.editingDidEndOnExit)
+            .subscribe(onNext: { [weak self] in
+                self?.view.endEditing(true)
+            })
+            .disposed(by: disposeBag)
+
         clearButton.rx.tap
             .subscribe(onNext: { [weak self] in
                 guard let self else { return }
@@ -383,6 +396,7 @@ extension LocationSelectViewController: UITableViewDataSource, UITableViewDelega
     }
 
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        view.endEditing(true)
         tableView.deselectRow(at: indexPath, animated: false)
         itemTappedSubject.onNext(indexPath.row)
     }
