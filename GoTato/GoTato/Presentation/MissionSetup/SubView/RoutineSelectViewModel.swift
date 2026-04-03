@@ -34,7 +34,7 @@ final class RoutineSelectViewModel: BaseViewModel {
     func transform(input: Input) -> Output {
         let cal = Calendar.current
         let initialStartDate = cal.startOfDay(for: Date())
-        let initialEndDate = cal.date(byAdding: .day, value: 31, to: initialStartDate) ?? Date()
+        let initialEndDate = cal.date(byAdding: .day, value: 7, to: initialStartDate) ?? Date()
 
         var components = cal.dateComponents([.year, .month, .day], from: Date())
         components.hour = 9
@@ -65,7 +65,7 @@ final class RoutineSelectViewModel: BaseViewModel {
         // 시작일 변경
         input.startDateSelected
             .do(onNext: { newStart in
-                let minEnd = cal.date(byAdding: .day, value: 1, to: newStart) ?? newStart
+                let minEnd = newStart
                 let maxEnd = cal.date(byAdding: .month, value: 1, to: newStart) ?? newStart
 
                 if endDate.value < minEnd || endDate.value > maxEnd {
