@@ -8,6 +8,7 @@ import SnapKit
 import RxSwift
 import RxCocoa
 import CoreData
+import NMapsMap
 
 // MARK: - Delegate
 
@@ -41,6 +42,8 @@ final class MissionDetailViewController: BaseViewController {
     private let scrollView    = UIScrollView()
     private let contentStack  = UIStackView()
     private let infoSection   = MissionInfoSectionView()
+    private let mapContainer  = UIView()
+    private var currentMapView: CustomNMView?
     private let statsSection  = MissionStatsSectionView()
     private let calendarSection = MissionCalendarSectionView()
     private let listSection   = AttendanceListSectionView()
@@ -60,7 +63,7 @@ final class MissionDetailViewController: BaseViewController {
     override func configureHierarchy() {
         view.addSubview(scrollView)
         scrollView.addSubview(contentStack)
-        [infoSection, statsSection, calendarSection, listSection, extendButton].forEach {
+        [infoSection, mapContainer, statsSection, calendarSection, listSection, extendButton].forEach {
             contentStack.addArrangedSubview($0)
         }
     }
@@ -71,6 +74,7 @@ final class MissionDetailViewController: BaseViewController {
             $0.edges.equalToSuperview().inset(UIEdgeInsets(top: 16, left: 20, bottom: 32, right: 20))
             $0.width.equalTo(scrollView).offset(-40)
         }
+        mapContainer.snp.makeConstraints { $0.height.equalTo(200) }
         extendButton.snp.makeConstraints { $0.height.equalTo(52) }
     }
 
@@ -81,6 +85,9 @@ final class MissionDetailViewController: BaseViewController {
 
         calendarSection.isHidden = true
         extendButton.isHidden    = true
+        mapContainer.isHidden    = true
+        mapContainer.layer.cornerRadius = 12
+        mapContainer.clipsToBounds = true
 
         navigationItem.title = "미션 상세"
         navigationItem.rightBarButtonItem = UIBarButtonItem(
@@ -124,6 +131,7 @@ final class MissionDetailViewController: BaseViewController {
                     totalCompleted: info.totalCompleted
                 )
                 self.calendarSection.isHidden = !info.isMultiDay
+                self.updateMap(lat: info.locationLat, lng: info.locationLng)
             })
             .disposed(by: disposeBag)
 
@@ -278,6 +286,19 @@ final class MissionDetailViewController: BaseViewController {
     }
 
     // MARK: - Helpers
+
+    private func updateMap(lat: Double?, lng: Double?) {
+        guard let lat, let lng else {
+            mapContainer.isHidden = true
+            return
+        }
+        currentMapView?.removeFromSuperview()
+        let mapView = CustomNMView(coord: NMGLatLng(lat: lat, lng: lng))
+        mapContainer.addSubview(mapView)
+        mapView.snp.makeConstraints { $0.edges.equalToSuperview() }
+        currentMapView = mapView
+        mapContainer.isHidden = false
+    }
 
     private func fetchAllMissionTitles() -> [String] {
         let request = Mission.fetchRequest()

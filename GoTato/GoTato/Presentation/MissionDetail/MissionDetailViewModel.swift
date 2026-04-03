@@ -13,6 +13,8 @@ struct MissionDetailState {
     let title: String
     let locationName: String?
     let locationID: UUID?
+    let locationLat: Double?
+    let locationLng: Double?
     let startDate: Date
     let endDate: Date
     let deadline: Date
@@ -104,6 +106,8 @@ final class MissionDetailViewModel: BaseViewModel {
                     title:          m.title ?? "",
                     locationName:   m.location?.name,
                     locationID:     m.location?.id,
+                    locationLat:    m.location?.lati,
+                    locationLng:    m.location?.longi,
                     startDate:      m.startDate!,
                     endDate:        m.endDate!,
                     deadline:       m.deadline!,
