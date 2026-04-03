@@ -79,15 +79,32 @@ final class HistoryViewModel: BaseViewModel {
             .share(replay: 1)
 
         // 통계: 출석률 · 지각 횟수 · 절약 시간
-        let stats = monthAttendances
-            .map { attendances -> (rate: Int, lateCount: Int, savedMinutes: Int) in
-                let total = attendances.count
+        let stats = Observable.combineLatest(monthAttendances, currentMonth)
+            .map { attendances, month -> (rate: Int, lateCount: Int, savedMinutes: Int) in
+                let cal = Calendar.current
+                let now = Date()
+                
+                // 이번 달을 보고 있다면 오늘까지만 통계에 포함, 과거 달이면 전체 포함
+                let isCurrentMonth = cal.isDate(month, equalTo: now, toGranularity: .month)
+                
+                let targetAttendances: [Attendance]
+                if isCurrentMonth {
+                    let tomorrowStart = cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: now)) ?? now
+                    targetAttendances = attendances.filter { 
+                        guard let plan = $0.planDate else { return false }
+                        return plan < tomorrowStart
+                    }
+                } else {
+                    targetAttendances = attendances
+                }
+
+                let total = targetAttendances.count
                 guard total > 0 else { return (rate: 0, lateCount: 0, savedMinutes: 0) }
 
-                let attendedCount = attendances.filter { $0.status == 1 || $0.status == 2 }.count
-                let lateCount     = attendances.filter { $0.status == 2 }.count
+                let attendedCount = targetAttendances.filter { $0.status == 1 || $0.status == 2 }.count
+                let lateCount     = targetAttendances.filter { $0.status == 2 }.count
                 // status=1이면 recordDate < planDate → 일찍 도착한 분(min) 합산
-                let savedMinutes  = attendances
+                let savedMinutes  = targetAttendances
                     .filter { $0.status == 1 }
                     .reduce(0) { sum, a in
                         guard let record = a.recordDate, let plan = a.planDate else { return sum }
