@@ -57,6 +57,17 @@ private enum DayStatus {
         case .scheduled:  return GTTColor.textQuiet
         }
     }
+
+    var dotColor: UIColor {
+        switch self {
+        case .pending:    return GTTColor.tan
+        case .success:    return GTTColor.success       // #79BF8B 초록
+        case .late:       return GTTColor.streakToday   // #F5B748 노랑
+        case .fail:       return GTTColor.error         // #F44336 빨강
+        case .today:      return GTTColor.info          // #5B8DEF 파랑
+        case .scheduled:  return GTTColor.textQuiet
+        }
+    }
 }
 
 // MARK: - CalendarDayCell
@@ -65,12 +76,25 @@ private final class CalendarDayCell: FSCalendarCell {
 
     let bgView = UIView()
     var useBoldFont = false
+    var dotColors: [UIColor] = []
+
+    private let dotView = UIView()
+    private var segmentLayers: [CALayer] = []
+
+    private enum Dot {
+        static let height: CGFloat = 4
+        static let unitWidth: CGFloat = 4
+        static let padding: CGFloat = 2
+        static let topGap: CGFloat = 9   // titleLabel centerY 기준 아래 오프셋
+    }
 
     override init(frame: CGRect) {
         super.init(frame: frame)
         contentView.insertSubview(bgView, at: 0)
         bgView.layer.cornerRadius = Layout.cellCornerRadius
         bgView.clipsToBounds = true
+        dotView.clipsToBounds = true
+        contentView.addSubview(dotView)
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -86,6 +110,37 @@ private final class CalendarDayCell: FSCalendarCell {
         titleLabel.frame = CGRect(x: 0, y: top, width: bounds.width, height: h)
         // appearance 시스템이 폰트를 덮어쓸 수 있으므로 layoutSubviews에서 직접 설정
         titleLabel.font = useBoldFont ? GTTFont.calendarDayBold.font : GTTFont.calendarDay.font
+
+        // 미션별 색상 세그먼트 pill dot
+        segmentLayers.forEach { $0.removeFromSuperlayer() }
+        segmentLayers.removeAll()
+
+        if !dotColors.isEmpty {
+            dotView.isHidden = false
+            dotView.backgroundColor = .clear
+            let count = dotColors.count
+            let maxWidth = bounds.width - Dot.padding * 2
+            let dotW = min(CGFloat(count) * Dot.unitWidth, maxWidth)
+            let dotY = titleLabel.frame.midY + Dot.topGap
+            dotView.frame = CGRect(
+                x: (bounds.width - dotW) / 2,
+                y: dotY,
+                width: dotW,
+                height: Dot.height
+            )
+            dotView.layer.cornerRadius = Dot.height / 2
+
+            let segWidth = dotW / CGFloat(count)
+            for (i, color) in dotColors.enumerated() {
+                let layer = CALayer()
+                layer.frame = CGRect(x: segWidth * CGFloat(i), y: 0, width: segWidth, height: Dot.height)
+                layer.backgroundColor = color.cgColor
+                dotView.layer.addSublayer(layer)
+                segmentLayers.append(layer)
+            }
+        } else {
+            dotView.isHidden = true
+        }
     }
 }
 
@@ -312,14 +367,28 @@ extension CalendarSectionView: FSCalendarDataSource {
     func calendar(_ calendar: FSCalendar, cellFor date: Date, at position: FSCalendarMonthPosition) -> FSCalendarCell {
         let cell = calendar.dequeueReusableCell(withIdentifier: "day", for: date, at: position) as! CalendarDayCell
         let status = dayStatus(for: date)
+        let cal = Calendar.current
+        let key = cal.startOfDay(for: date)
 
         if position == .current {
             let isSelected = calendar.selectedDates.contains(date)
             cell.bgView.backgroundColor = isSelected ? GTTColor.surface : status.backgroundColor
             cell.useBoldFont = (status == .scheduled)
+
+            let statuses = statusMap[key] ?? []
+            if statuses.isEmpty {
+                cell.dotColors = []
+            } else if status == .today || status == .scheduled {
+                // 오늘·미래: 모든 세그먼트 동일 색상
+                cell.dotColors = statuses.map { _ in status.dotColor }
+            } else {
+                // 과거: 미션별 개별 status 색상
+                cell.dotColors = statuses.map { DayStatus(rawValue: $0).dotColor }
+            }
         } else {
             cell.bgView.backgroundColor = .clear
             cell.useBoldFont = false
+            cell.dotColors = []
         }
         return cell
     }
