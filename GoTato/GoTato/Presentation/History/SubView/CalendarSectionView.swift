@@ -25,7 +25,7 @@ private enum Layout {
 // MARK: - DayStatus
 
 private enum DayStatus {
-    case pending, success, late, fail, today
+    case pending, success, late, fail, today, scheduled
 
     init(rawValue: Int16?) {
         switch rawValue {
@@ -38,21 +38,23 @@ private enum DayStatus {
 
     var backgroundColor: UIColor {
         switch self {
-        case .pending:  return GTTColor.white
-        case .success:  return GTTColor.successBg
-        case .late:     return GTTColor.warningBg
-        case .fail:     return GTTColor.errorLight
-        case .today:    return GTTColor.infoLight
+        case .pending:    return GTTColor.white
+        case .success:    return GTTColor.successBg
+        case .late:       return GTTColor.warningBg
+        case .fail:       return GTTColor.errorLight
+        case .today:      return GTTColor.infoLight
+        case .scheduled:  return GTTColor.white
         }
     }
 
     var textColor: UIColor {
         switch self {
-        case .pending:  return GTTColor.textQuiet
-        case .success:  return GTTColor.successText
-        case .late:     return GTTColor.warningBrown
-        case .fail:     return GTTColor.error
-        case .today:    return GTTColor.infoText
+        case .pending:    return GTTColor.tan
+        case .success:    return GTTColor.successText
+        case .late:       return GTTColor.warningBrown
+        case .fail:       return GTTColor.error
+        case .today:      return GTTColor.infoText
+        case .scheduled:  return GTTColor.textQuiet
         }
     }
 }
@@ -62,6 +64,7 @@ private enum DayStatus {
 private final class CalendarDayCell: FSCalendarCell {
 
     let bgView = UIView()
+    var useBoldFont = false
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -82,7 +85,7 @@ private final class CalendarDayCell: FSCalendarCell {
         // bgView의 y·height와 동일하게 덮어써서 정렬.
         titleLabel.frame = CGRect(x: 0, y: top, width: bounds.width, height: h)
         // appearance 시스템이 폰트를 덮어쓸 수 있으므로 layoutSubviews에서 직접 설정
-        titleLabel.font = isSelected ? GTTFont.calendarDaySelected.font : GTTFont.calendarDay.font
+        titleLabel.font = useBoldFont ? GTTFont.calendarDayBold.font : GTTFont.calendarDay.font
     }
 }
 
@@ -308,9 +311,16 @@ final class CalendarSectionView: UIView {
 extension CalendarSectionView: FSCalendarDataSource {
     func calendar(_ calendar: FSCalendar, cellFor date: Date, at position: FSCalendarMonthPosition) -> FSCalendarCell {
         let cell = calendar.dequeueReusableCell(withIdentifier: "day", for: date, at: position) as! CalendarDayCell
-        cell.bgView.backgroundColor = position == .current
-            ? dayStatus(for: date).backgroundColor
-            : .clear
+        let status = dayStatus(for: date)
+
+        if position == .current {
+            let isSelected = calendar.selectedDates.contains(date)
+            cell.bgView.backgroundColor = isSelected ? GTTColor.surface : status.backgroundColor
+            cell.useBoldFont = (status == .scheduled)
+        } else {
+            cell.bgView.backgroundColor = .clear
+            cell.useBoldFont = false
+        }
         return cell
     }
 }
@@ -362,8 +372,10 @@ extension CalendarSectionView: FSCalendarDelegateAppearance {
         // 오늘은 항상 파랑
         if cal.isDateInToday(date) { return .today }
 
-        // 미래는 기본(색 없음)
-        if key > cal.startOfDay(for: Date()) { return .pending }
+        // 미래: 미션이 존재하면 scheduled, 아니면 pending
+        if key > cal.startOfDay(for: Date()) {
+            return statusMap[key] != nil ? .scheduled : .pending
+        }
 
         // 과거: 해당 날짜의 status 목록을 집계
         let statuses = statusMap[key] ?? []

@@ -75,7 +75,7 @@ private final class MissionCalendarDayCell: FSCalendarCell {
         let top = (bounds.height - h) / 2
         bgView.frame = CGRect(x: inset, y: top, width: bounds.width - inset * 2, height: h)
         titleLabel.frame = CGRect(x: 0, y: top, width: bounds.width, height: h)
-        titleLabel.font = isSelected ? GTTFont.calendarDaySelected.font : GTTFont.calendarDay.font
+        titleLabel.font = isSelected ? GTTFont.calendarDayBold.font : GTTFont.calendarDay.font
     }
 }
 

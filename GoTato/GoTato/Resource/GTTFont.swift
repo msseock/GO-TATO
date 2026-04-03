@@ -13,8 +13,7 @@ enum GTTFont {
     case captionSmall   // 13pt, 500 — 작은 캡션 텍스트
     case badge          // 12pt, 500 — 뱃지, 태그 라벨
     case calendarDay    // 12pt, 600 — 요일 헤더 및 기본 날짜 셀
-    case calendarDayBold // 12pt, 700 — 활성 상태 날짜 셀 (status 1/2/3)
-    case calendarDaySelected // 12pt, 700 — 선택된 날짜 셀
+    case calendarDayBold // 12pt, 900 — 미션 예정일 등 강조 날짜 셀
     case miniLabel      // 11pt, 700 — 미니 라벨, 섹션 레이블
     case placeName      // 14pt, 600 — 장소명, 검색 결과 아이템 제목
     case segmentLabel   // 15pt, 700 — 세그먼트 컨트롤 활성 텍스트
@@ -34,7 +33,6 @@ enum GTTFont {
         case .badge:          return pretendard(size: 12, weight: .medium)
         case .calendarDay:    return pretendard(size: 12, weight: .semibold)
         case .calendarDayBold: return pretendard(size: 12, weight: .bold)
-        case .calendarDaySelected: return pretendard(size: 12, weight: .black)
         case .miniLabel:      return pretendard(size: 11, weight: .bold)
         case .placeName:      return pretendard(size: 14, weight: .semibold)
         case .segmentLabel:   return pretendard(size: 15, weight: .bold)
@@ -48,6 +46,7 @@ enum GTTFont {
         case .bold:                name = "Pretendard-Bold"
         case .semibold:            name = "Pretendard-SemiBold"
         case .medium:              name = "Pretendard-Medium"
+        case .bold:              name = "Pretendard-Bold"
         case .black:              name = "Pretendard-Black"
         default:                   name = "Pretendard-Regular"
         }
