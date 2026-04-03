@@ -38,23 +38,17 @@ private enum DayStatus {
 
     var backgroundColor: UIColor {
         switch self {
-        case .pending:    return GTTColor.white
-        case .success:    return GTTColor.successBg
-        case .late:       return GTTColor.warningBg
-        case .fail:       return GTTColor.errorLight
         case .today:      return GTTColor.infoLight
-        case .scheduled:  return GTTColor.white
+        case .pending, .success, .late, .fail, .scheduled:
+            return GTTColor.white
         }
     }
 
     var textColor: UIColor {
         switch self {
         case .pending:    return GTTColor.tan
-        case .success:    return GTTColor.successText
-        case .late:       return GTTColor.warningBrown
-        case .fail:       return GTTColor.error
         case .today:      return GTTColor.infoText
-        case .scheduled:  return GTTColor.textQuiet
+        default:          return GTTColor.textQuiet
         }
     }
 
@@ -425,7 +419,11 @@ extension CalendarSectionView: FSCalendarDelegateAppearance {
     }
 
     func calendar(_ calendar: FSCalendar, appearance: FSCalendarAppearance, titleSelectionColorFor date: Date) -> UIColor? {
-        dayStatus(for: date).textColor
+        let status = dayStatus(for: date)
+        if status == .today {
+            return GTTColor.textQuiet
+        }
+        return status.textColor
     }
 
     func calendar(_ calendar: FSCalendar, appearance: FSCalendarAppearance, borderDefaultColorFor date: Date) -> UIColor? {
