@@ -25,7 +25,7 @@ private enum Layout {
 // MARK: - DayStatus (same as CalendarSectionView)
 
 private enum DayStatus {
-    case pending, success, late, fail, today
+    case pending, success, late, fail, today, scheduled
 
     init(rawValue: Int16?) {
         switch rawValue {
@@ -38,7 +38,7 @@ private enum DayStatus {
 
     var backgroundColor: UIColor {
         switch self {
-        case .pending: return GTTColor.white
+        case .pending, .scheduled: return GTTColor.white
         case .success: return GTTColor.successBg
         case .late:    return GTTColor.warningBg
         case .fail:    return GTTColor.errorLight
@@ -48,11 +48,12 @@ private enum DayStatus {
 
     var textColor: UIColor {
         switch self {
-        case .pending: return GTTColor.textQuiet
-        case .success: return GTTColor.successText
-        case .late:    return GTTColor.warningBrown
-        case .fail:    return GTTColor.error
-        case .today:   return GTTColor.infoText
+        case .pending:   return GTTColor.tan
+        case .scheduled: return GTTColor.textQuiet
+        case .success:   return GTTColor.successText
+        case .late:      return GTTColor.warningBrown
+        case .fail:      return GTTColor.error
+        case .today:     return GTTColor.infoText
         }
     }
 }
@@ -61,6 +62,7 @@ private enum DayStatus {
 
 private final class MissionCalendarDayCell: FSCalendarCell {
     let bgView = UIView()
+    var useBoldFont = false
     override init(frame: CGRect) {
         super.init(frame: frame)
         contentView.insertSubview(bgView, at: 0)
@@ -75,7 +77,7 @@ private final class MissionCalendarDayCell: FSCalendarCell {
         let top = (bounds.height - h) / 2
         bgView.frame = CGRect(x: inset, y: top, width: bounds.width - inset * 2, height: h)
         titleLabel.frame = CGRect(x: 0, y: top, width: bounds.width, height: h)
-        titleLabel.font = isSelected ? GTTFont.calendarDayBold.font : GTTFont.calendarDay.font
+        titleLabel.font = useBoldFont ? GTTFont.calendarDayBold.font : GTTFont.calendarDay.font
     }
 }
 
@@ -278,7 +280,14 @@ final class MissionCalendarSectionView: UIView {
 extension MissionCalendarSectionView: FSCalendarDataSource {
     func calendar(_ calendar: FSCalendar, cellFor date: Date, at position: FSCalendarMonthPosition) -> FSCalendarCell {
         let cell = calendar.dequeueReusableCell(withIdentifier: "day", for: date, at: position) as! MissionCalendarDayCell
-        cell.bgView.backgroundColor = position == .current ? dayStatus(for: date).backgroundColor : .clear
+        let status = dayStatus(for: date)
+        if position == .current {
+            cell.bgView.backgroundColor = status.backgroundColor
+            cell.useBoldFont = (status != .pending)
+        } else {
+            cell.bgView.backgroundColor = .clear
+            cell.useBoldFont = false
+        }
         return cell
     }
 
@@ -312,7 +321,9 @@ extension MissionCalendarSectionView: FSCalendarDelegateAppearance {
         let cal = Calendar.current
         let key = cal.startOfDay(for: date)
         if cal.isDateInToday(date) { return .today }
-        if key > cal.startOfDay(for: Date()) { return .pending }
+        if key > cal.startOfDay(for: Date()) {
+            return statusMap[key] != nil ? .scheduled : .pending
+        }
         let statuses = statusMap[key] ?? []
         if statuses.isEmpty { return .pending }
         let hasSuccess = statuses.contains(1)
