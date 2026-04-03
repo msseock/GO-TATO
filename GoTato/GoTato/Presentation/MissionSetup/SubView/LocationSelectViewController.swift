@@ -53,8 +53,7 @@ final class LocationSelectViewController: BaseViewController {
 
     // Map preview
     private let mapPreviewContainer = UIView()
-    private let nmMapView           = NMFMapView()
-    private let marker              = NMFMarker()
+    private var customMapView: CustomNMView?
 
     // CTA
     private let ctaButton = GTTMainButton(
@@ -89,7 +88,6 @@ final class LocationSelectViewController: BaseViewController {
         rListContainer.addSubview(tableView)
         rListContainer.addSubview(emptyView)
         view.addSubview(mapPreviewContainer)
-        mapPreviewContainer.addSubview(nmMapView)
         view.addSubview(ctaButton)
     }
 
@@ -138,8 +136,6 @@ final class LocationSelectViewController: BaseViewController {
             mapPreviewHeightConstraint = make.height.equalTo(0).constraint
             make.bottom.lessThanOrEqualTo(ctaButton.snp.top).offset(-16)
         }
-
-        nmMapView.snp.makeConstraints { $0.edges.equalToSuperview() }
 
         ctaButton.snp.makeConstraints { make in
             make.leading.trailing.equalToSuperview().inset(24)
@@ -195,13 +191,6 @@ final class LocationSelectViewController: BaseViewController {
         mapPreviewContainer.clipsToBounds = true
         mapPreviewContainer.isHidden = true
         
-        nmMapView.isScrollGestureEnabled = true
-        nmMapView.isZoomGestureEnabled = true
-        
-        marker.iconImage = NMFOverlayImage(name: "destinationMark")
-        marker.width = 25
-        marker.height = 25
-
         setupEmptyView()
         setupInternalActions()
     }
@@ -337,17 +326,17 @@ final class LocationSelectViewController: BaseViewController {
 
     private func updateMapPreview(coord: NMGLatLng?) {
         if let coord {
-            marker.position = coord
-            marker.mapView = nmMapView
-            
-            let update = NMFCameraUpdate(scrollTo: coord)
-            update.animation = .easeIn
-            nmMapView.moveCamera(update)
+            customMapView?.removeFromSuperview()
+            let newMapView = CustomNMView(coord: coord, isInteractive: true)
+            mapPreviewContainer.addSubview(newMapView)
+            newMapView.snp.makeConstraints { $0.edges.equalToSuperview() }
+            customMapView = newMapView
 
             mapPreviewContainer.isHidden = false
             mapPreviewHeightConstraint?.update(offset: 160)
         } else {
-            marker.mapView = nil
+            customMapView?.removeFromSuperview()
+            customMapView = nil
             mapPreviewContainer.isHidden = true
             mapPreviewHeightConstraint?.update(offset: 0)
         }
