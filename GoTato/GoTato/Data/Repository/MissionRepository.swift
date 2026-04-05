@@ -15,6 +15,7 @@ protocol MissionRepositoryProtocol {
     func createMission(title: String, deadline: Date, startDate: Date, endDate: Date, selectedDays: Set<Int>, location: Location) -> Single<UUID>
     func updateTitle(missionID: UUID, newTitle: String) -> Single<Void>
     func updateDeadline(missionID: UUID, newDeadline: Date) -> Single<Void>
+    func updateSelectedDays(missionID: UUID, newDays: Set<Int>) -> Single<Void>
     func extendMission(missionID: UUID, newEndDate: Date) -> Single<Void>
     func deleteMission(missionID: UUID) -> Single<Void>
 }
@@ -175,10 +176,11 @@ final class MissionRepository: MissionRepositoryProtocol {
 
             // Mission 생성 (id는 awakeFromInsert에서 자동 할당)
             let mission = Mission(context: ctx)
-            mission.title     = title
-            mission.deadline  = deadline
-            mission.startDate = startDate
-            mission.endDate   = endDate
+            mission.title        = title
+            mission.deadline     = deadline
+            mission.startDate    = startDate
+            mission.endDate      = endDate
+            mission.selectedDays = selectedDays
             // NSManagedObject는 컨텍스트 간 직접 전달 불가 → objectID로 재조회
             mission.location  = ctx.object(with: locationID) as? Location
 
@@ -250,10 +252,14 @@ final class MissionRepository: MissionRepositoryProtocol {
             mission.endDate = newEndDate
 
             let dateService = GTTDateService.shared
-            guard let dayAfterOld = Calendar.current.date(byAdding: .day, value: 1, to: oldEndDate) else { return }
+            let cal = Calendar.current
+            guard let dayAfterOld = cal.date(byAdding: .day, value: 1, to: oldEndDate) else { return }
             let newDays = dateService.calendarDays(from: dayAfterOld, through: newEndDate)
             let deadline = mission.deadline!
+            let missionSelectedDays = mission.selectedDays
             for day in newDays {
+                let weekday = cal.component(.weekday, from: day)
+                guard missionSelectedDays.contains(weekday) else { continue }
                 let attendance = Attendance(context: ctx)
                 attendance.planDate = dateService.combining(date: day, timeFrom: deadline)
                 attendance.mission  = mission
@@ -299,6 +305,75 @@ final class MissionRepository: MissionRepositoryProtocol {
 
             #if DEBUG
             print("[DB][Mission] ✅ updateDeadline 완료 - \"\(mission.title ?? "")\" \(oldDeadline) → \(newDeadline), pending Attendance \(pending.count)개 갱신")
+            #endif
+        }
+    }
+
+    /// 반복 요일 변경.
+    /// 사이드 이펙트: 오늘 이후 + status==0(pending)인 Attendance를 모두 삭제 후, 새 요일 기준으로 재생성.
+    func updateSelectedDays(missionID: UUID, newDays: Set<Int>) -> Single<Void> {
+        return stack.performBackgroundTask { ctx in
+            #if DEBUG
+            print("[DB][Mission] updateSelectedDays 시작 - missionID: \(missionID), newDays: \(newDays.sorted())")
+            #endif
+
+            let request = Mission.fetchRequest()
+            request.predicate = NSPredicate(format: "id == %@", missionID as CVarArg)
+            request.fetchLimit = 1
+            guard let mission = try ctx.fetch(request).first else {
+                throw RepositoryError.notFound
+            }
+
+            mission.selectedDays = newDays
+
+            let cal = Calendar.current
+            let todayStart = cal.startOfDay(for: Date())
+            let dateService = GTTDateService.shared
+
+            // 오늘 이후 + status==0 인 기존 Attendance 삭제
+            let pendingFetch = Attendance.fetchRequest()
+            pendingFetch.predicate = NSPredicate(
+                format: "mission == %@ AND status == 0 AND planDate >= %@",
+                mission,
+                todayStart as CVarArg
+            )
+            let pendingAttendances = try ctx.fetch(pendingFetch)
+            let deletedCount = pendingAttendances.count
+            for a in pendingAttendances {
+                ctx.delete(a)
+            }
+
+            // max(오늘, startDate)~endDate 범위에서 새 요일로 Attendance 재생성
+            let startDate = mission.startDate!
+            let endDate = mission.endDate!
+            let deadline = mission.deadline!
+            let rangeStart = max(todayStart, cal.startOfDay(for: startDate))
+            let days = dateService.calendarDays(from: rangeStart, through: endDate)
+            var createdCount = 0
+            for day in days {
+                let weekday = cal.component(.weekday, from: day)
+                guard newDays.contains(weekday) else { continue }
+
+                // 해당 날짜에 이미 Attendance가 있으면 (기록된 것) 스킵
+                let existingFetch = Attendance.fetchRequest()
+                existingFetch.predicate = NSPredicate(
+                    format: "mission == %@ AND planDate >= %@ AND planDate < %@",
+                    mission,
+                    cal.startOfDay(for: day) as CVarArg,
+                    cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: day))! as CVarArg
+                )
+                existingFetch.fetchLimit = 1
+                let existing = try ctx.fetch(existingFetch)
+                guard existing.isEmpty else { continue }
+
+                let attendance = Attendance(context: ctx)
+                attendance.planDate = dateService.combining(date: day, timeFrom: deadline)
+                attendance.mission = mission
+                createdCount += 1
+            }
+
+            #if DEBUG
+            print("[DB][Mission] ✅ updateSelectedDays 완료 - 삭제 \(deletedCount)개, 생성 \(createdCount)개")
             #endif
         }
     }

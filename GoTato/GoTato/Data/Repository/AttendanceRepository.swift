@@ -13,6 +13,7 @@ protocol AttendanceRepositoryProtocol {
     func fetchTodayAttendance(for missionID: UUID) -> Single<Attendance?>
     func recordAttendance(attendanceID: UUID, recordDate: Date) -> Single<Void>
     func commitAttendance(attendanceID: UUID) -> Single<Void>
+    func deleteAttendance(attendanceID: UUID) -> Single<Void>
     func batchMarkFailed() -> Single<Void>
 }
 
@@ -145,6 +146,31 @@ final class AttendanceRepository: AttendanceRepositoryProtocol {
 
             #if DEBUG
             print("[DB][Attendance] ✅ commitAttendance 완료 - attendanceID: \(attendanceID)")
+            #endif
+        }
+    }
+
+    /// Attendance 개별 삭제.
+    func deleteAttendance(attendanceID: UUID) -> Single<Void> {
+        return stack.performBackgroundTask { ctx in
+            #if DEBUG
+            print("[DB][Attendance] deleteAttendance 시작 - attendanceID: \(attendanceID)")
+            #endif
+
+            let request = Attendance.fetchRequest()
+            request.predicate = NSPredicate(format: "id == %@", attendanceID as CVarArg)
+            request.fetchLimit = 1
+            guard let attendance = try ctx.fetch(request).first else {
+                #if DEBUG
+                print("[DB][Attendance] ❌ deleteAttendance 실패 - attendanceID \(attendanceID) 찾을 수 없음")
+                #endif
+                throw RepositoryError.notFound
+            }
+
+            ctx.delete(attendance)
+
+            #if DEBUG
+            print("[DB][Attendance] ✅ deleteAttendance 완료 - attendanceID: \(attendanceID)")
             #endif
         }
     }
