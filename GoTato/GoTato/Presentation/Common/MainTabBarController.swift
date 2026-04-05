@@ -27,5 +27,15 @@ final class MainTabBarController: UITabBarController {
         )
 
         viewControllers = [dashboard, history]
+
+        #if DEBUG
+        let developer = UINavigationController(rootViewController: DeveloperModeViewController())
+        developer.tabBarItem = UITabBarItem(
+            title: "개발자",
+            image: UIImage(systemName: "gearshape", withConfiguration: config),
+            selectedImage: UIImage(systemName: "gearshape.fill", withConfiguration: config)
+        )
+        viewControllers?.append(developer)
+        #endif
     }
 }
