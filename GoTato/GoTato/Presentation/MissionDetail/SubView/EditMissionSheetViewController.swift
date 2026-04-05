@@ -10,6 +10,7 @@ struct EditMissionResult {
     let newTitle: String?
     let newLocationName: String?
     let newDeadline: Date?
+    let newSelectedDays: Set<Int>?
 }
 
 final class EditMissionSheetViewController: UIViewController {
@@ -24,6 +25,8 @@ final class EditMissionSheetViewController: UIViewController {
     private let forbiddenTitles: [String]
     private let currentLocationName: String?
     private let currentDeadline: Date
+    private let currentSelectedDays: Set<Int>
+    private let missionEndDate: Date
     private let canEditLocationAndDeadline: Bool
 
     // MARK: - UI — Scroll
@@ -47,6 +50,14 @@ final class EditMissionSheetViewController: UIViewController {
     private let deadlineCard  = UIView()
     private let timePicker    = UIDatePicker()
 
+    // MARK: - UI — 반복 요일 Section
+
+    private let daySelector = DaySelector()
+
+    // MARK: - State
+
+    private var editedSelectedDays: Set<Int>
+
     // MARK: - Init
 
     init(
@@ -54,13 +65,18 @@ final class EditMissionSheetViewController: UIViewController {
         forbiddenTitles: [String],
         currentLocationName: String?,
         currentDeadline: Date,
+        currentSelectedDays: Set<Int>,
+        missionEndDate: Date,
         isMissionEnded: Bool
     ) {
         self.currentTitle               = currentTitle
         self.forbiddenTitles            = forbiddenTitles
         self.currentLocationName        = currentLocationName
         self.currentDeadline            = currentDeadline
+        self.currentSelectedDays        = currentSelectedDays
+        self.missionEndDate             = missionEndDate
         self.canEditLocationAndDeadline = !isMissionEnded
+        self.editedSelectedDays         = currentSelectedDays
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -144,6 +160,58 @@ final class EditMissionSheetViewController: UIViewController {
         timePicker.date     = currentDeadline
         timePicker.backgroundColor = GTTColor.bgPrimary
         timePicker.addTarget(self, action: #selector(timePickerChanged), for: .valueChanged)
+
+        // Day selector
+        setupDaySelector()
+    }
+
+    private func setupDaySelector() {
+        let availableDays = computeAvailableDays()
+        daySelector.updateAvailableDays(availableDays)
+        daySelector.updateSelectedDays(currentSelectedDays.intersection(availableDays))
+        editedSelectedDays = currentSelectedDays.intersection(availableDays)
+
+        daySelector.onDayToggled = { [weak self] day in
+            guard let self else { return }
+            if self.editedSelectedDays.contains(day) {
+                self.editedSelectedDays.remove(day)
+            } else {
+                self.editedSelectedDays.insert(day)
+            }
+            self.daySelector.updateSelectedDays(self.editedSelectedDays)
+            self.updateConfirmState()
+        }
+
+        daySelector.onAllToggled = { [weak self] in
+            guard let self else { return }
+            let available = self.computeAvailableDays()
+            let allSelected = available.isSubset(of: self.editedSelectedDays)
+            if allSelected {
+                self.editedSelectedDays.subtract(available)
+            } else {
+                self.editedSelectedDays.formUnion(available)
+            }
+            self.daySelector.updateSelectedDays(self.editedSelectedDays)
+            self.updateConfirmState()
+        }
+    }
+
+    /// 오늘~endDate 범위에 실제 존재하는 요일만 available로 반환
+    private func computeAvailableDays() -> Set<Int> {
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: Date())
+        let end = cal.startOfDay(for: missionEndDate)
+        guard today <= end else { return [] }
+
+        var available = Set<Int>()
+        var current = today
+        // 최대 7일만 확인하면 모든 요일 커버
+        let limit = min(cal.date(byAdding: .day, value: 7, to: today)!, end)
+        while current <= limit {
+            available.insert(cal.component(.weekday, from: current))
+            current = cal.date(byAdding: .day, value: 1, to: current)!
+        }
+        return available
     }
 
     // MARK: - Setup: Hierarchy
@@ -180,6 +248,15 @@ final class EditMissionSheetViewController: UIViewController {
                 card: deadlineCard
             )
             contentStack.addArrangedSubview(deadlineSection)
+        }
+
+        // 반복 요일 section (only if mission not ended)
+        if canEditLocationAndDeadline {
+            let daySection = makeSectionStack(
+                headerText: "반복 요일",
+                card: daySelector
+            )
+            contentStack.addArrangedSubview(daySection)
         }
     }
 
@@ -273,7 +350,13 @@ final class EditMissionSheetViewController: UIViewController {
             )
         }
 
-        let hasValidChange   = titleChanged || locationChanged || deadlineChanged
+        // Selected days changed
+        var daysChanged = false
+        if canEditLocationAndDeadline {
+            daysChanged = editedSelectedDays != currentSelectedDays && !editedSelectedDays.isEmpty
+        }
+
+        let hasValidChange   = titleChanged || locationChanged || deadlineChanged || daysChanged
         let hasBlockingError = titleError != nil
 
         let enabled = hasValidChange && !hasBlockingError
@@ -312,10 +395,19 @@ final class EditMissionSheetViewController: UIViewController {
             newDeadline = nil
         }
 
+        let newSelectedDays: Set<Int>?
+        if canEditLocationAndDeadline,
+           editedSelectedDays != currentSelectedDays && !editedSelectedDays.isEmpty {
+            newSelectedDays = editedSelectedDays
+        } else {
+            newSelectedDays = nil
+        }
+
         onConfirm?(EditMissionResult(
             newTitle: newTitle,
             newLocationName: newLocationName,
-            newDeadline: newDeadline
+            newDeadline: newDeadline,
+            newSelectedDays: newSelectedDays
         ))
         navigationController?.popViewController(animated: true)
     }

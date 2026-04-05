@@ -30,12 +30,13 @@ final class MissionDetailViewController: BaseViewController {
     private var latestIsMissionEnded: Bool = false
 
     // Input relays
-    private let viewWillAppearRelay  = PublishRelay<Void>()
-    private let editTitleRelay       = PublishRelay<String>()
-    private let editLocationRelay    = PublishRelay<String>()
-    private let editDeadlineRelay    = PublishRelay<Date>()
-    private let extendEndDateRelay   = PublishRelay<Date>()
-    private let deleteTappedRelay    = PublishRelay<Void>()
+    private let viewWillAppearRelay     = PublishRelay<Void>()
+    private let editTitleRelay          = PublishRelay<String>()
+    private let editLocationRelay       = PublishRelay<String>()
+    private let editDeadlineRelay       = PublishRelay<Date>()
+    private let editSelectedDaysRelay   = PublishRelay<Set<Int>>()
+    private let extendEndDateRelay      = PublishRelay<Date>()
+    private let deleteTappedRelay       = PublishRelay<Void>()
 
     // MARK: - UI
 
@@ -107,6 +108,7 @@ final class MissionDetailViewController: BaseViewController {
             editTitle:        editTitleRelay.asObservable(),
             editLocationName: editLocationRelay.asObservable(),
             editDeadline:     editDeadlineRelay.asObservable(),
+            editSelectedDays: editSelectedDaysRelay.asObservable(),
             extendEndDate:    extendEndDateRelay.asObservable(),
             deleteTapped:     deleteTappedRelay.asObservable()
         )
@@ -246,6 +248,8 @@ final class MissionDetailViewController: BaseViewController {
             forbiddenTitles: forbidden,
             currentLocationName: info.locationName,
             currentDeadline: info.deadline,
+            currentSelectedDays: info.selectedDays,
+            missionEndDate: info.endDate,
             isMissionEnded: latestIsMissionEnded
         )
         sheet.onConfirm = { [weak self] result in
@@ -257,6 +261,9 @@ final class MissionDetailViewController: BaseViewController {
             }
             if let deadline = result.newDeadline {
                 self?.editDeadlineRelay.accept(deadline)
+            }
+            if let days = result.newSelectedDays {
+                self?.editSelectedDaysRelay.accept(days)
             }
         }
         navigationController?.pushViewController(sheet, animated: true)

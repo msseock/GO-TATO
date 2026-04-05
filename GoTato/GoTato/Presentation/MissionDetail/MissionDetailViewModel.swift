@@ -18,6 +18,7 @@ struct MissionDetailState {
     let startDate: Date
     let endDate: Date
     let deadline: Date
+    let selectedDays: Set<Int>
     let successCount: Int
     let lateCount: Int
     let failCount: Int
@@ -54,6 +55,7 @@ final class MissionDetailViewModel: BaseViewModel {
         let editTitle:         Observable<String>
         let editLocationName:  Observable<String>
         let editDeadline:      Observable<Date>
+        let editSelectedDays:  Observable<Set<Int>>
         let extendEndDate:     Observable<Date>
         let deleteTapped:      Observable<Void>
     }
@@ -111,6 +113,7 @@ final class MissionDetailViewModel: BaseViewModel {
                     startDate:      m.startDate!,
                     endDate:        m.endDate!,
                     deadline:       m.deadline!,
+                    selectedDays:   m.selectedDays,
                     successCount:   successCount,
                     lateCount:      lateCount,
                     failCount:      failCount,
@@ -146,7 +149,7 @@ final class MissionDetailViewModel: BaseViewModel {
                         return p <= todayEnd
                     }
                     .sorted { ($0.planDate ?? .distantPast) > ($1.planDate ?? .distantPast) }
-                    .map { AttendanceItem(planDate: $0.planDate!, recordDate: $0.recordDate, status: $0.status) }
+                    .map { AttendanceItem(id: $0.id!, planDate: $0.planDate!, recordDate: $0.recordDate, status: $0.status) }
             }
             .asDriver(onErrorJustReturn: [])
 
@@ -229,6 +232,22 @@ final class MissionDetailViewModel: BaseViewModel {
                         if hasConflict { return .error(RepositoryError.deadlineConflict) }
                         return self.missionRepo.updateDeadline(missionID: self.missionID, newDeadline: pair.newDeadline)
                     }
+                    .map { Result<Void, Error>.success(()) }
+                    .catch { .just(.failure($0)) }
+                    .asObservable()
+                    .do(onNext: { result in
+                        if case .success = result { refreshSubject.onNext(()) }
+                    })
+            }
+            .bind(to: editResultRelay)
+            .disposed(by: disposeBag)
+
+        // MARK: Edit selected days
+
+        input.editSelectedDays
+            .flatMapLatest { [weak self] newDays -> Observable<Result<Void, Error>> in
+                guard let self else { return .just(.failure(AppError.unknown)) }
+                return self.missionRepo.updateSelectedDays(missionID: self.missionID, newDays: newDays)
                     .map { Result<Void, Error>.success(()) }
                     .catch { .just(.failure($0)) }
                     .asObservable()

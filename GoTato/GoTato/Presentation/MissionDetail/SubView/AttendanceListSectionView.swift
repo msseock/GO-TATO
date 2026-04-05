@@ -7,6 +7,7 @@ import UIKit
 import SnapKit
 
 struct AttendanceItem {
+    let id: UUID
     let planDate: Date
     let recordDate: Date?
     let status: Int16
