@@ -386,6 +386,14 @@ extension CalendarSectionView: FSCalendarDataSource {
         }
         return cell
     }
+
+    func minimumDate(for calendar: FSCalendar) -> Date {
+        GTTDateService.shared.historyMinDate
+    }
+
+    func maximumDate(for calendar: FSCalendar) -> Date {
+        GTTDateService.shared.historyMaxDate
+    }
 }
 
 // MARK: - FSCalendarDelegate

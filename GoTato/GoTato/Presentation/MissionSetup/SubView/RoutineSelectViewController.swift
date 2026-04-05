@@ -239,8 +239,11 @@ final class RoutineSelectViewController: BaseViewController {
     // MARK: - Picker Actions
 
     private func handleStartCardTap() {
-        let today = Calendar.current.startOfDay(for: Date())
-        let sheet = DatePickerSheetViewController(initial: currentStartDate, minDate: today, maxDate: nil)
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: Date())
+        let maxStart = cal.date(byAdding: .month, value: -1, to: GTTDateService.shared.historyMaxDate) ?? GTTDateService.shared.historyMaxDate
+        
+        let sheet = DatePickerSheetViewController(initial: currentStartDate, minDate: today, maxDate: maxStart)
         sheet.onConfirm = { [weak self] selected in
             self?.startDateSubject.onNext(selected)
         }

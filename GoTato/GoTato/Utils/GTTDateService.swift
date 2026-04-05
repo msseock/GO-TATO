@@ -73,6 +73,22 @@ final class GTTDateService {
         return (start, end)
     }
 
+    /// 기록 모아보기에서 볼 수 있는 최소 날짜 (현재 연도 - 5년 1월 1일)
+    var historyMinDate: Date {
+        let calendar = Calendar.current
+        let currentYear = calendar.component(.year, from: Date())
+        let components = DateComponents(year: currentYear - 5, month: 1, day: 1)
+        return calendar.date(from: components)!
+    }
+
+    /// 기록 모아보기에서 볼 수 있는 최대 날짜 (현재 연도 + 1년 12월 31일)
+    var historyMaxDate: Date {
+        let calendar = Calendar.current
+        let currentYear = calendar.component(.year, from: Date())
+        let components = DateComponents(year: currentYear + 1, month: 12, day: 31)
+        return calendar.date(from: components)!
+    }
+
     /// Date를 '3월 30일 월요일' 형식의 한글 문자열로 변환
     func formatToKoreanFullDate(from date: Date) -> String {
         let formatter = DateFormatter()
