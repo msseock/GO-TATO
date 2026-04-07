@@ -17,6 +17,7 @@ class CustomNMView: UIView {
     private var singleCoord: NMGLatLng?
     private var didMoveCamera = false
     private var marker: NMFMarker?
+    private var currentMarker: NMFMarker?
 
     init(currentCoord: NMGLatLng, destinationCoord: NMGLatLng) {
         let sw = NMGLatLng(
@@ -42,6 +43,7 @@ class CustomNMView: UIView {
         marker1.width = 60
         marker1.height = 60
         marker1.mapView = mapView
+        self.currentMarker = marker1
 
         let marker2 = NMFMarker(position: destinationCoord)
         marker2.iconImage = NMFOverlayImage(name: "destinationMark")
@@ -93,6 +95,11 @@ class CustomNMView: UIView {
         marker.height = 25
         marker.mapView = mapView
         self.marker = marker
+    }
+
+    /// 현재 위치 마커만 이동시킨다 (지도/카메라 재구성 없음)
+    func updateCurrentLocation(_ coord: NMGLatLng) {
+        currentMarker?.position = coord
     }
 
     func updateCoord(coord: NMGLatLng) {

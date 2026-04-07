@@ -98,6 +98,9 @@ final class OngoingMissionCardView: UIView {
     )
     private let mapContainer = UIView()
     private var currentMapView: CustomNMView?
+    private var lastRedrawCurrentCoord: NMGLatLng?
+    private var lastDestinationCoord: NMGLatLng?
+    private static let redrawDistanceThreshold: Double = 1000 // meters
 
     private let distanceChip = UIView()
     private let chipIconView = UIImageView()
@@ -253,10 +256,24 @@ final class OngoingMissionCardView: UIView {
     }
 
     private func updateMap(currentCoord: NMGLatLng, destinationCoord: NMGLatLng) {
+        // 목적지가 동일하고, 직전 재구성 시점의 현재 위치에서 임계값 이내라면
+        // 지도를 재생성하지 않고 현재 위치 마커만 이동시킨다.
+        if let mapView = currentMapView,
+           let lastDest = lastDestinationCoord,
+           let lastCurrent = lastRedrawCurrentCoord,
+           lastDest.lat == destinationCoord.lat,
+           lastDest.lng == destinationCoord.lng,
+           lastCurrent.distance(to: currentCoord) < Self.redrawDistanceThreshold {
+            mapView.updateCurrentLocation(currentCoord)
+            return
+        }
+
         currentMapView?.removeFromSuperview()
         let mapView = CustomNMView(currentCoord: currentCoord, destinationCoord: destinationCoord)
         mapContainer.addSubview(mapView)
         mapView.snp.makeConstraints { $0.edges.equalToSuperview() }
         currentMapView = mapView
+        lastRedrawCurrentCoord = currentCoord
+        lastDestinationCoord = destinationCoord
     }
 }
