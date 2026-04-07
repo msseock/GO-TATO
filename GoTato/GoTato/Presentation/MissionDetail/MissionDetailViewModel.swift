@@ -35,29 +35,34 @@ final class MissionDetailViewModel: BaseViewModel {
 
     private let missionID: UUID
     private let missionRepo: MissionRepositoryProtocol
+    private let attendanceRepo: AttendanceRepositoryProtocol
     private let locationRepo: LocationRepositoryProtocol
     private let disposeBag = DisposeBag()
 
     init(
         missionID: UUID,
-        missionRepo: MissionRepositoryProtocol    = MissionRepository.shared,
-        locationRepo: LocationRepositoryProtocol  = LocationRepository.shared
+        missionRepo: MissionRepositoryProtocol       = MissionRepository.shared,
+        attendanceRepo: AttendanceRepositoryProtocol  = AttendanceRepository.shared,
+        locationRepo: LocationRepositoryProtocol      = LocationRepository.shared
     ) {
-        self.missionID   = missionID
-        self.missionRepo = missionRepo
-        self.locationRepo = locationRepo
+        self.missionID      = missionID
+        self.missionRepo    = missionRepo
+        self.attendanceRepo = attendanceRepo
+        self.locationRepo   = locationRepo
     }
 
     // MARK: - Input / Output
 
     struct Input {
-        let viewWillAppear:    Observable<Void>
-        let editTitle:         Observable<String>
-        let editLocationName:  Observable<String>
-        let editDeadline:      Observable<Date>
-        let editSelectedDays:  Observable<Set<Int>>
-        let extendEndDate:     Observable<Date>
-        let deleteTapped:      Observable<Void>
+        let viewWillAppear:       Observable<Void>
+        let editTitle:            Observable<String>
+        let editLocationName:     Observable<String>
+        let editDeadline:         Observable<Date>
+        let editSelectedDays:     Observable<Set<Int>>
+        let extendEndDate:        Observable<Date>
+        let deleteTapped:         Observable<Void>
+        let selectedDate:         Observable<Date?>
+        let deleteAttendance:     Observable<UUID>
     }
 
     struct Output {
@@ -138,18 +143,34 @@ final class MissionDetailViewModel: BaseViewModel {
             return today >= sevenBefore
         }
 
-        let attendanceList = mission
-            .map { m -> [AttendanceItem] in
-                let cal      = Calendar.current
-                let todayEnd = cal.date(bySettingHour: 23, minute: 59, second: 59, of: Date())!
+        let attendanceList = Observable
+            .combineLatest(mission, input.selectedDate.startWith(nil))
+            .map { m, selectedDate -> [AttendanceItem] in
+                let cal = Calendar.current
                 let set = (m.attendances as? Set<Attendance>) ?? []
-                return set
-                    .filter { a in
-                        guard let p = a.planDate else { return false }
-                        return p <= todayEnd
-                    }
-                    .sorted { ($0.planDate ?? .distantPast) > ($1.planDate ?? .distantPast) }
-                    .map { AttendanceItem(id: $0.id!, planDate: $0.planDate!, recordDate: $0.recordDate, status: $0.status) }
+
+                if let selectedDate {
+                    // 선택된 날짜의 모든 attendance (예정 포함)
+                    let dayStart = cal.startOfDay(for: selectedDate)
+                    let dayEnd = cal.date(byAdding: .day, value: 1, to: dayStart)!
+                    return set
+                        .filter { a in
+                            guard let p = a.planDate else { return false }
+                            return p >= dayStart && p < dayEnd
+                        }
+                        .sorted { ($0.planDate ?? .distantPast) > ($1.planDate ?? .distantPast) }
+                        .map { AttendanceItem(id: $0.id!, planDate: $0.planDate!, recordDate: $0.recordDate, status: $0.status) }
+                } else {
+                    // 기본: 기록된 것(status != 0)만, 오늘까지
+                    let todayEnd = cal.date(bySettingHour: 23, minute: 59, second: 59, of: Date())!
+                    return set
+                        .filter { a in
+                            guard let p = a.planDate else { return false }
+                            return p <= todayEnd && a.status != 0
+                        }
+                        .sorted { ($0.planDate ?? .distantPast) > ($1.planDate ?? .distantPast) }
+                        .map { AttendanceItem(id: $0.id!, planDate: $0.planDate!, recordDate: $0.recordDate, status: $0.status) }
+                }
             }
             .asDriver(onErrorJustReturn: [])
 
@@ -232,6 +253,22 @@ final class MissionDetailViewModel: BaseViewModel {
                         if hasConflict { return .error(RepositoryError.deadlineConflict) }
                         return self.missionRepo.updateDeadline(missionID: self.missionID, newDeadline: pair.newDeadline)
                     }
+                    .map { Result<Void, Error>.success(()) }
+                    .catch { .just(.failure($0)) }
+                    .asObservable()
+                    .do(onNext: { result in
+                        if case .success = result { refreshSubject.onNext(()) }
+                    })
+            }
+            .bind(to: editResultRelay)
+            .disposed(by: disposeBag)
+
+        // MARK: Delete attendance
+
+        input.deleteAttendance
+            .flatMapLatest { [weak self] attendanceID -> Observable<Result<Void, Error>> in
+                guard let self else { return .just(.failure(AppError.unknown)) }
+                return self.attendanceRepo.deleteAttendance(attendanceID: attendanceID)
                     .map { Result<Void, Error>.success(()) }
                     .catch { .just(.failure($0)) }
                     .asObservable()

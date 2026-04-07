@@ -15,43 +15,97 @@ struct AttendanceItem {
 
 final class AttendanceListSectionView: UIView {
 
+    // MARK: - Callbacks
+
+    var onDelete: ((UUID) -> Void)?
+
+    // MARK: - Properties
+
+    private var items: [AttendanceItem] = []
+
     // MARK: - UI
 
-    private let rowStack = UIStackView()
+    private let tableView = UITableView(frame: .zero, style: .plain)
+    private var tableHeightConstraint: Constraint?
 
     // MARK: - Init
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-        rowStack.axis    = .vertical
-        rowStack.spacing = 0
-        addSubview(rowStack)
-        rowStack.snp.makeConstraints { $0.edges.equalToSuperview() }
+        setupTableView()
     }
 
     required init?(coder: NSCoder) { fatalError() }
 
+    // MARK: - Setup
+
+    private func setupTableView() {
+        tableView.register(AttendanceCell.self, forCellReuseIdentifier: AttendanceCell.reuseID)
+        tableView.dataSource = self
+        tableView.delegate = self
+        tableView.separatorStyle = .none
+        tableView.isScrollEnabled = false
+        tableView.backgroundColor = .clear
+        tableView.rowHeight = 52
+
+        addSubview(tableView)
+        tableView.snp.makeConstraints {
+            $0.edges.equalToSuperview()
+            tableHeightConstraint = $0.height.equalTo(0).constraint
+        }
+    }
+
     // MARK: - Configure
 
     func configure(items: [AttendanceItem]) {
-        rowStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        for (index, item) in items.enumerated() {
-            let row = AttendanceRowView()
-            row.configure(with: item)
-            if index > 0 {
-                let divider = UIView()
-                divider.backgroundColor = GTTColor.divider
-                divider.snp.makeConstraints { $0.height.equalTo(1) }
-                rowStack.addArrangedSubview(divider)
-            }
-            rowStack.addArrangedSubview(row)
-        }
+        self.items = items
+        tableView.reloadData()
+        updateHeight()
+    }
+
+    private func updateHeight() {
+        let height = CGFloat(items.count) * 52
+        tableHeightConstraint?.update(offset: height)
     }
 }
 
-// MARK: - AttendanceRowView
+// MARK: - UITableViewDataSource
 
-private final class AttendanceRowView: UIView {
+extension AttendanceListSectionView: UITableViewDataSource {
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        items.count
+    }
+
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        let cell = tableView.dequeueReusableCell(withIdentifier: AttendanceCell.reuseID, for: indexPath) as! AttendanceCell
+        cell.configure(with: items[indexPath.row])
+        cell.showDivider = indexPath.row > 0
+        return cell
+    }
+}
+
+// MARK: - UITableViewDelegate
+
+extension AttendanceListSectionView: UITableViewDelegate {
+    func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+        let item = items[indexPath.row]
+        let deleteAction = UIContextualAction(style: .destructive, title: "삭제") { [weak self] _, _, completion in
+            guard let self else { return completion(false) }
+            self.items.remove(at: indexPath.row)
+            tableView.deleteRows(at: [indexPath], with: .automatic)
+            self.updateHeight()
+            self.onDelete?(item.id)
+            completion(true)
+        }
+        return UISwipeActionsConfiguration(actions: [deleteAction])
+    }
+}
+
+// MARK: - AttendanceCell
+
+private final class AttendanceCell: UITableViewCell {
+
+    static let reuseID = "AttendanceCell"
 
     private static let dateFmt: DateFormatter = {
         let f = DateFormatter()
@@ -69,9 +123,16 @@ private final class AttendanceRowView: UIView {
     private let dateLabel  = UILabel()
     private let timeLabel  = UILabel()
     private let badgeView  = BadgeView()
+    private let divider    = UIView()
 
-    override init(frame: CGRect) {
-        super.init(frame: frame)
+    var showDivider: Bool = false {
+        didSet { divider.isHidden = !showDivider }
+    }
+
+    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
+        super.init(style: style, reuseIdentifier: reuseIdentifier)
+        selectionStyle = .none
+        backgroundColor = .clear
 
         dateLabel.font      = GTTFont.bodySecondary.font
         dateLabel.textColor = GTTColor.textPrimary
@@ -80,11 +141,17 @@ private final class AttendanceRowView: UIView {
         timeLabel.textColor = GTTColor.textSecondary
         timeLabel.textAlignment = .center
 
-        addSubview(dateLabel)
-        addSubview(timeLabel)
-        addSubview(badgeView)
+        divider.backgroundColor = GTTColor.divider
 
-        snp.makeConstraints { $0.height.equalTo(52) }
+        contentView.addSubview(divider)
+        contentView.addSubview(dateLabel)
+        contentView.addSubview(timeLabel)
+        contentView.addSubview(badgeView)
+
+        divider.snp.makeConstraints {
+            $0.top.leading.trailing.equalToSuperview()
+            $0.height.equalTo(1)
+        }
 
         dateLabel.snp.makeConstraints {
             $0.leading.equalToSuperview().inset(4)
@@ -101,6 +168,8 @@ private final class AttendanceRowView: UIView {
             $0.height.equalTo(24)
             $0.width.greaterThanOrEqualTo(44)
         }
+
+        divider.isHidden = true
     }
 
     required init?(coder: NSCoder) { fatalError() }

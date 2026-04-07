@@ -85,11 +85,17 @@ private final class MissionCalendarDayCell: FSCalendarCell {
 
 final class MissionCalendarSectionView: UIView {
 
+    // MARK: - Callbacks
+
+    /// 날짜 선택/해제 시 호출. nil이면 선택 해제.
+    var onDateSelected: ((Date?) -> Void)?
+
     // MARK: - Properties
 
     private var statusMap: [Date: [Int16]] = [:]
     private var missionStartDate: Date?
     private var missionEndDate: Date?
+    private var selectedDate: Date?
 
     // MARK: - UI
 
@@ -116,7 +122,7 @@ final class MissionCalendarSectionView: UIView {
     func configure(startDate: Date, endDate: Date, statuses: [Date: [Int16]]) {
         missionStartDate = startDate
         missionEndDate   = endDate
-        
+
         fsCalendar.delegate = self
 
         // 현재 페이지를 오늘(미션 기간 내) 또는 startDate로
@@ -133,6 +139,15 @@ final class MissionCalendarSectionView: UIView {
         }, by: { $0.0 }).mapValues { $0.map { $0.1 } }
         statusMap = normalized
         updateHeaderLabel(for: fsCalendar.currentPage)
+        fsCalendar.reloadData()
+    }
+
+    /// 외부에서 선택 해제할 때 사용
+    func deselectDate() {
+        if let date = selectedDate {
+            fsCalendar.deselect(date)
+        }
+        selectedDate = nil
         fsCalendar.reloadData()
     }
 
@@ -220,7 +235,7 @@ final class MissionCalendarSectionView: UIView {
         fsCalendar.locale         = Locale(identifier: "ko_KR")
         fsCalendar.firstWeekday   = 1
         fsCalendar.scrollEnabled  = true
-        fsCalendar.allowsSelection = false
+        fsCalendar.allowsSelection = true
         fsCalendar.placeholderType = .none
 
         fsCalendar.appearance.borderRadius        = 0
@@ -282,8 +297,10 @@ extension MissionCalendarSectionView: FSCalendarDataSource {
         let cell = calendar.dequeueReusableCell(withIdentifier: "day", for: date, at: position) as! MissionCalendarDayCell
         let status = dayStatus(for: date)
         if position == .current {
-            cell.bgView.backgroundColor = status.backgroundColor
-            cell.useBoldFont = (status != .pending)
+            let cal = Calendar.current
+            let isSelected = selectedDate != nil && cal.isDate(date, inSameDayAs: selectedDate!)
+            cell.bgView.backgroundColor = isSelected ? GTTColor.surface : status.backgroundColor
+            cell.useBoldFont = isSelected || (status != .pending)
         } else {
             cell.bgView.backgroundColor = .clear
             cell.useBoldFont = false
@@ -306,6 +323,28 @@ extension MissionCalendarSectionView: FSCalendarDelegate {
     func calendarCurrentPageDidChange(_ calendar: FSCalendar) {
         updateHeaderLabel(for: calendar.currentPage)
     }
+
+    func calendar(_ calendar: FSCalendar, didSelect date: Date, at monthPosition: FSCalendarMonthPosition) {
+        guard monthPosition == .current else { return }
+        let cal = Calendar.current
+        // 같은 날짜를 다시 탭하면 선택 해제
+        if let prev = selectedDate, cal.isDate(prev, inSameDayAs: date) {
+            calendar.deselect(date)
+            selectedDate = nil
+            calendar.reloadData()
+            onDateSelected?(nil)
+        } else {
+            selectedDate = date
+            calendar.reloadData()
+            onDateSelected?(date)
+        }
+    }
+
+    func calendar(_ calendar: FSCalendar, didDeselect date: Date, at monthPosition: FSCalendarMonthPosition) {
+        selectedDate = nil
+        calendar.reloadData()
+        onDateSelected?(nil)
+    }
 }
 
 // MARK: - FSCalendarDelegateAppearance
@@ -315,6 +354,13 @@ extension MissionCalendarSectionView: FSCalendarDelegateAppearance {
     func calendar(_ calendar: FSCalendar, appearance: FSCalendarAppearance, titleDefaultColorFor date: Date) -> UIColor? {
         dayStatus(for: date).textColor
     }
+
+    func calendar(_ calendar: FSCalendar, appearance: FSCalendarAppearance, titleSelectionColorFor date: Date) -> UIColor? {
+        let status = dayStatus(for: date)
+        if status == .today { return GTTColor.textQuiet }
+        return status.textColor
+    }
+
     func calendar(_ calendar: FSCalendar, appearance: FSCalendarAppearance, borderDefaultColorFor date: Date) -> UIColor? { .clear }
 
     private func dayStatus(for date: Date) -> DayStatus {
@@ -335,4 +381,3 @@ extension MissionCalendarSectionView: FSCalendarDelegateAppearance {
         return .fail
     }
 }
-

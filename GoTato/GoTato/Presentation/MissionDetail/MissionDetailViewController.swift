@@ -37,6 +37,8 @@ final class MissionDetailViewController: BaseViewController {
     private let editSelectedDaysRelay   = PublishRelay<Set<Int>>()
     private let extendEndDateRelay      = PublishRelay<Date>()
     private let deleteTappedRelay       = PublishRelay<Void>()
+    private let selectedDateRelay       = BehaviorRelay<Date?>(value: nil)
+    private let deleteAttendanceRelay   = PublishRelay<UUID>()
 
     // MARK: - UI
 
@@ -100,6 +102,14 @@ final class MissionDetailViewController: BaseViewController {
         navigationItem.rightBarButtonItem?.tintColor = GTTColor.textPrimary
 
         extendButton.addTarget(self, action: #selector(didTapExtend), for: .touchUpInside)
+
+        calendarSection.onDateSelected = { [weak self] date in
+            self?.selectedDateRelay.accept(date)
+        }
+
+        listSection.onDelete = { [weak self] id in
+            self?.deleteAttendanceRelay.accept(id)
+        }
     }
 
     override func bind() {
@@ -110,7 +120,9 @@ final class MissionDetailViewController: BaseViewController {
             editDeadline:     editDeadlineRelay.asObservable(),
             editSelectedDays: editSelectedDaysRelay.asObservable(),
             extendEndDate:    extendEndDateRelay.asObservable(),
-            deleteTapped:     deleteTappedRelay.asObservable()
+            deleteTapped:     deleteTappedRelay.asObservable(),
+            selectedDate:     selectedDateRelay.asObservable(),
+            deleteAttendance: deleteAttendanceRelay.asObservable()
         )
 
         let output = viewModel.transform(input: input)
