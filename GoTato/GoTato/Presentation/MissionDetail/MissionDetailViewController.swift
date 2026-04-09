@@ -35,6 +35,7 @@ final class MissionDetailViewController: BaseViewController {
     private let editLocationRelay       = PublishRelay<String>()
     private let editDeadlineRelay       = PublishRelay<Date>()
     private let editSelectedDaysRelay   = PublishRelay<Set<Int>>()
+    private let editWifiSSIDRelay       = PublishRelay<String?>()
     private let extendEndDateRelay      = PublishRelay<Date>()
     private let deleteTappedRelay       = PublishRelay<Void>()
     private let selectedDateRelay       = BehaviorRelay<Date?>(value: nil)
@@ -119,6 +120,7 @@ final class MissionDetailViewController: BaseViewController {
             editLocationName: editLocationRelay.asObservable(),
             editDeadline:     editDeadlineRelay.asObservable(),
             editSelectedDays: editSelectedDaysRelay.asObservable(),
+            editWifiSSID:     editWifiSSIDRelay.asObservable(),
             extendEndDate:    extendEndDateRelay.asObservable(),
             deleteTapped:     deleteTappedRelay.asObservable(),
             selectedDate:     selectedDateRelay.asObservable(),

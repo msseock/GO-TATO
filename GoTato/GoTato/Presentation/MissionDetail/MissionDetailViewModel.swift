@@ -19,6 +19,7 @@ struct MissionDetailState {
     let endDate: Date
     let deadline: Date
     let selectedDays: Set<Int>
+    let wifiSSID: String?
     let successCount: Int
     let lateCount: Int
     let failCount: Int
@@ -59,6 +60,7 @@ final class MissionDetailViewModel: BaseViewModel {
         let editLocationName:     Observable<String>
         let editDeadline:         Observable<Date>
         let editSelectedDays:     Observable<Set<Int>>
+        let editWifiSSID:         Observable<String?>
         let extendEndDate:        Observable<Date>
         let deleteTapped:         Observable<Void>
         let selectedDate:         Observable<Date?>
@@ -119,6 +121,7 @@ final class MissionDetailViewModel: BaseViewModel {
                     endDate:        m.endDate!,
                     deadline:       m.deadline!,
                     selectedDays:   m.selectedDays,
+                    wifiSSID:       m.wifiSSID,
                     successCount:   successCount,
                     lateCount:      lateCount,
                     failCount:      failCount,
@@ -285,6 +288,22 @@ final class MissionDetailViewModel: BaseViewModel {
             .flatMapLatest { [weak self] newDays -> Observable<Result<Void, Error>> in
                 guard let self else { return .just(.failure(AppError.unknown)) }
                 return self.missionRepo.updateSelectedDays(missionID: self.missionID, newDays: newDays)
+                    .map { Result<Void, Error>.success(()) }
+                    .catch { .just(.failure($0)) }
+                    .asObservable()
+                    .do(onNext: { result in
+                        if case .success = result { refreshSubject.onNext(()) }
+                    })
+            }
+            .bind(to: editResultRelay)
+            .disposed(by: disposeBag)
+
+        // MARK: Edit WiFi SSID
+
+        input.editWifiSSID
+            .flatMapLatest { [weak self] newSSID -> Observable<Result<Void, Error>> in
+                guard let self else { return .just(.failure(AppError.unknown)) }
+                return self.missionRepo.updateWifiSSID(missionID: self.missionID, newSSID: newSSID)
                     .map { Result<Void, Error>.success(()) }
                     .catch { .just(.failure($0)) }
                     .asObservable()
