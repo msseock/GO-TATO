@@ -20,12 +20,13 @@ struct MissionRoutine {
 // MARK: - DateCardType
 
 enum DateCardType {
-    case start, end, time
+    case start, end, time, wifi
 
     var icon: String {
         switch self {
         case .start, .end: return "calendar"
         case .time: return "clock"
+        case .wifi: return "wifi"
         }
     }
 
@@ -34,6 +35,7 @@ enum DateCardType {
         case .start:  return "시작하는 날"
         case .end:    return "끝나는 날"
         case .time:   return "도착목표 시간"
+        case .wifi:   return "WiFi 인증 추가 (선택)"
         }
     }
 }
@@ -45,6 +47,7 @@ final class RoutineSelectViewController: BaseViewController {
     // MARK: - Callbacks
 
     var onRoutineConfirmed: ((SelectedLocation, MissionRoutine) -> Void)?
+    var onAddWifiRequested: ((SelectedLocation, MissionRoutine) -> Void)?
 
     // location 화면에서 전달받은 선택 위치
     var pendingLocation: SelectedLocation?
@@ -61,6 +64,7 @@ final class RoutineSelectViewController: BaseViewController {
     private let allDaysToggledSubject = PublishSubject<Void>()
     private let timeSubject = PublishSubject<Date>()
     private let ctaTappedSubject = PublishSubject<Void>()
+    private let wifiTappedSubject = PublishSubject<Void>()
 
     // Current State for Picker bounds
     private var currentStartDate: Date = Date()
@@ -77,6 +81,7 @@ final class RoutineSelectViewController: BaseViewController {
     private let daySelector = DaySelector()
 
     private let timeCard = DateCard(type: .time)
+    private let wifiCard = DateCard(type: .wifi)
 
     private let ctaButton = GTTMainButton(
         title: "미션 만들기",
@@ -99,6 +104,7 @@ final class RoutineSelectViewController: BaseViewController {
         view.addSubview(endCard)
         view.addSubview(daySelector)
         view.addSubview(timeCard)
+        view.addSubview(wifiCard)
         view.addSubview(ctaButton)
     }
 
@@ -128,6 +134,11 @@ final class RoutineSelectViewController: BaseViewController {
             make.leading.trailing.equalToSuperview().inset(24)
         }
 
+        wifiCard.snp.makeConstraints { make in
+            make.top.equalTo(timeCard.snp.bottom).offset(12)
+            make.leading.trailing.equalToSuperview().inset(24)
+        }
+
         ctaButton.snp.makeConstraints { make in
             make.bottom.equalTo(view.safeAreaLayoutGuide).inset(24)
             make.leading.trailing.equalToSuperview().inset(24)
@@ -146,6 +157,7 @@ final class RoutineSelectViewController: BaseViewController {
         startCard.onTap = { [weak self] in self?.handleStartCardTap() }
         endCard.onTap = { [weak self] in self?.handleEndCardTap() }
         timeCard.onTap = { [weak self] in self?.handleTimeCardTap() }
+        wifiCard.onTap = { [weak self] in self?.wifiTappedSubject.onNext(()) }
 
         daySelector.onDayToggled = { [weak self] day in
             self?.dayToggledSubject.onNext(day)
@@ -166,7 +178,8 @@ final class RoutineSelectViewController: BaseViewController {
             dayToggled: dayToggledSubject.asObservable(),
             allDaysToggled: allDaysToggledSubject.asObservable(),
             timeSelected: timeSubject.asObservable(),
-            ctaTapped: ctaTappedSubject.asObservable()
+            ctaTapped: ctaTappedSubject.asObservable(),
+            wifiTapped: wifiTappedSubject.asObservable()
         )
 
         let output = viewModel.transform(input: input)
@@ -232,6 +245,13 @@ final class RoutineSelectViewController: BaseViewController {
             .emit(onNext: { [weak self] routine in
                 guard let self, let location = self.pendingLocation else { return }
                 self.onRoutineConfirmed?(location, routine)
+            })
+            .disposed(by: disposeBag)
+
+        output.wifiRequested
+            .emit(onNext: { [weak self] routine in
+                guard let self, let location = self.pendingLocation else { return }
+                self.onAddWifiRequested?(location, routine)
             })
             .disposed(by: disposeBag)
     }

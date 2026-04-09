@@ -24,12 +24,13 @@ final class MissionSetupViewController: BaseViewController {
     private let viewModel = MissionSetupViewModel()
     private let disposeBag = DisposeBag()
 
-    private let createMissionSubject = PublishSubject<(SelectedLocation, MissionRoutine)>()
+    private let createMissionSubject = PublishSubject<(SelectedLocation, MissionRoutine, String?)>()
 
     // MARK: - Child View Controllers
 
     private let locationVC = LocationSelectViewController()
     private let routineVC = RoutineSelectViewController()
+    private let wifiVC = WifiSelectViewController()
 
     // MARK: - UI
 
@@ -103,17 +104,39 @@ final class MissionSetupViewController: BaseViewController {
         routineVC.didMove(toParent: self)
         routineVC.view.isHidden = true
 
+        addChild(wifiVC)
+        containerView.addSubview(wifiVC.view)
+        wifiVC.view.snp.makeConstraints { make in
+            make.edges.equalToSuperview()
+        }
+        wifiVC.didMove(toParent: self)
+        wifiVC.view.isHidden = true
+
         locationVC.onLocationConfirmed = { [weak self] location in
             self?.routineVC.pendingLocation = location
             self?.transitionToRoutine()
         }
 
         routineVC.onRoutineConfirmed = { [weak self] location, routine in
-            self?.createMissionSubject.onNext((location, routine))
+            self?.createMissionSubject.onNext((location, routine, nil))
+        }
+
+        routineVC.onAddWifiRequested = { [weak self] location, routine in
+            self?.wifiVC.pendingLocation = location
+            self?.wifiVC.pendingRoutine = routine
+            self?.transitionToWifi()
+        }
+
+        wifiVC.onBackRequested = { [weak self] in
+            self?.transitionBackToRoutine()
+        }
+
+        wifiVC.onWifiConfirmed = { [weak self] location, routine, ssid in
+            self?.createMissionSubject.onNext((location, routine, ssid))
         }
     }
 
-    // MARK: - Location → Routine 전환
+    // MARK: - Step 전환
 
     private func transitionToRoutine() {
         UIView.transition(
@@ -122,6 +145,28 @@ final class MissionSetupViewController: BaseViewController {
             options: .transitionCrossDissolve
         ) {
             self.locationVC.view.isHidden = true
+            self.routineVC.view.isHidden = false
+        }
+    }
+
+    private func transitionToWifi() {
+        UIView.transition(
+            with: containerView,
+            duration: 0.3,
+            options: .transitionCrossDissolve
+        ) {
+            self.routineVC.view.isHidden = true
+            self.wifiVC.view.isHidden = false
+        }
+    }
+
+    private func transitionBackToRoutine() {
+        UIView.transition(
+            with: containerView,
+            duration: 0.3,
+            options: .transitionCrossDissolve
+        ) {
+            self.wifiVC.view.isHidden = true
             self.routineVC.view.isHidden = false
         }
     }

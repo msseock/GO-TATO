@@ -12,7 +12,7 @@ import RxCocoa
 final class MissionSetupViewModel: BaseViewModel {
 
     struct Input {
-        let createMission: Observable<(SelectedLocation, MissionRoutine)>
+        let createMission: Observable<(SelectedLocation, MissionRoutine, String?)>
     }
 
     struct Output {
@@ -24,7 +24,7 @@ final class MissionSetupViewModel: BaseViewModel {
 
     func transform(input: Input) -> Output {
         let missionResult = input.createMission
-            .flatMapLatest { location, routine -> Observable<Event<Void>> in
+            .flatMapLatest { location, routine, wifiSSID -> Observable<Event<Void>> in
                 let startDate = Calendar.current.startOfDay(for: routine.startDate)
                 let endDate = Calendar.current.startOfDay(for: routine.endDate)
 
@@ -40,7 +40,8 @@ final class MissionSetupViewModel: BaseViewModel {
                         startDate: startDate,
                         endDate: endDate,
                         selectedDays: routine.selectedDays,
-                        location: loc
+                        location: loc,
+                        wifiSSID: wifiSSID
                     )
                 }
                 .do(onSuccess: { missionID in

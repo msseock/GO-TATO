@@ -16,6 +16,7 @@ final class RoutineSelectViewModel: BaseViewModel {
         let allDaysToggled: Observable<Void>
         let timeSelected: Observable<Date>
         let ctaTapped: Observable<Void>
+        let wifiTapped: Observable<Void>
     }
 
     struct Output {
@@ -27,6 +28,7 @@ final class RoutineSelectViewModel: BaseViewModel {
         let selectedDays: Driver<Set<Int>>
         let isCtaEnabled: Driver<Bool>
         let routineConfirmed: Signal<MissionRoutine>
+        let wifiRequested: Signal<MissionRoutine>
     }
 
     private let disposeBag = DisposeBag()
@@ -119,23 +121,29 @@ final class RoutineSelectViewModel: BaseViewModel {
         let isCtaEnabled = selectedDays.asObservable()
             .map { !$0.isEmpty }
 
-        let routineConfirmed = input.ctaTapped
-            .withLatestFrom(Observable.combineLatest(
-                startDate.asObservable(),
-                endDate.asObservable(),
-                selectedDays.asObservable(),
-                selectedTime.asObservable(),
-                showDaySelector
-            ))
-            .map { start, end, days, time, showSelector -> MissionRoutine in
-                if showSelector {
-                    return MissionRoutine(startDate: start, endDate: end, selectedDays: days, deadline: time)
-                } else {
-                    // 시작일 = 종료일: 해당 날의 요일만 포함
-                    let weekday = cal.component(.weekday, from: start)
-                    return MissionRoutine(startDate: start, endDate: start, selectedDays: [weekday], deadline: time)
-                }
+        let currentRoutine = Observable.combineLatest(
+            startDate.asObservable(),
+            endDate.asObservable(),
+            selectedDays.asObservable(),
+            selectedTime.asObservable(),
+            showDaySelector
+        )
+        .map { start, end, days, time, showSelector -> MissionRoutine in
+            if showSelector {
+                return MissionRoutine(startDate: start, endDate: end, selectedDays: days, deadline: time)
+            } else {
+                // 시작일 = 종료일: 해당 날의 요일만 포함
+                let weekday = cal.component(.weekday, from: start)
+                return MissionRoutine(startDate: start, endDate: start, selectedDays: [weekday], deadline: time)
             }
+        }
+
+        let routineConfirmed = input.ctaTapped
+            .withLatestFrom(currentRoutine)
+            .asSignal(onErrorSignalWith: .empty())
+
+        let wifiRequested = input.wifiTapped
+            .withLatestFrom(currentRoutine)
             .asSignal(onErrorSignalWith: .empty())
 
         return Output(
@@ -146,7 +154,8 @@ final class RoutineSelectViewModel: BaseViewModel {
             availableDays: availableDays.asDriver(onErrorJustReturn: Set(1...7)),
             selectedDays: selectedDays.asDriver(),
             isCtaEnabled: isCtaEnabled.asDriver(onErrorJustReturn: false),
-            routineConfirmed: routineConfirmed
+            routineConfirmed: routineConfirmed,
+            wifiRequested: wifiRequested
         )
     }
 
