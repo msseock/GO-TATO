@@ -12,11 +12,41 @@
 		C5182A7E2F71BD560019DCF3 /* SnapKit in Frameworks */ = {isa = PBXBuildFile; productRef = C5182A7D2F71BD560019DCF3 /* SnapKit */; };
 		C5182A812F71BD610019DCF3 /* Alamofire in Frameworks */ = {isa = PBXBuildFile; productRef = C5182A802F71BD610019DCF3 /* Alamofire */; };
 		C5182A842F71BE280019DCF3 /* NMapsMap in Frameworks */ = {isa = PBXBuildFile; productRef = C5182A832F71BE280019DCF3 /* NMapsMap */; };
+		C51983FF2F8785A800332B9E /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C51983FE2F8785A800332B9E /* WidgetKit.framework */; };
+		C51984012F8785A800332B9E /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C51984002F8785A800332B9E /* SwiftUI.framework */; };
+		C519840C2F8785A900332B9E /* BasicWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = C51983FC2F8785A800332B9E /* BasicWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		C5A429B92F74FF8F00C1F7BF /* FSCalendar in Frameworks */ = {isa = PBXBuildFile; productRef = C5A429B82F74FF8F00C1F7BF /* FSCalendar */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		C519840A2F8785A900332B9E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C51829D62F7127DD0019DCF3 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C51983FB2F8785A800332B9E;
+			remoteInfo = BasicWidgetExtension;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		C519840D2F8785A900332B9E /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				C519840C2F8785A900332B9E /* BasicWidgetExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		C51829DE2F7127DD0019DCF3 /* GoTato.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GoTato.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		C51983FC2F8785A800332B9E /* BasicWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = BasicWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		C51983FE2F8785A800332B9E /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		C51984002F8785A800332B9E /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -27,6 +57,13 @@
 			);
 			target = C51829DD2F7127DD0019DCF3 /* GoTato */;
 		};
+		C51984112F8785A900332B9E /* Exceptions for "BasicWidget" folder in "BasicWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = C51983FB2F8785A800332B9E /* BasicWidgetExtension */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -36,6 +73,14 @@
 				C51829F42F7127DF0019DCF3 /* Exceptions for "GoTato" folder in "GoTato" target */,
 			);
 			path = GoTato;
+			sourceTree = "<group>";
+		};
+		C51984022F8785A800332B9E /* BasicWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				C51984112F8785A900332B9E /* Exceptions for "BasicWidget" folder in "BasicWidgetExtension" target */,
+			);
+			path = BasicWidget;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -54,6 +99,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C51983F92F8785A800332B9E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C51984012F8785A800332B9E /* SwiftUI.framework in Frameworks */,
+				C51983FF2F8785A800332B9E /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -61,6 +115,8 @@
 			isa = PBXGroup;
 			children = (
 				C51829E02F7127DD0019DCF3 /* GoTato */,
+				C51984022F8785A800332B9E /* BasicWidget */,
+				C51983FD2F8785A800332B9E /* Frameworks */,
 				C51829DF2F7127DD0019DCF3 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -69,8 +125,18 @@
 			isa = PBXGroup;
 			children = (
 				C51829DE2F7127DD0019DCF3 /* GoTato.app */,
+				C51983FC2F8785A800332B9E /* BasicWidgetExtension.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		C51983FD2F8785A800332B9E /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				C51983FE2F8785A800332B9E /* WidgetKit.framework */,
+				C51984002F8785A800332B9E /* SwiftUI.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -83,10 +149,12 @@
 				C51829DA2F7127DD0019DCF3 /* Sources */,
 				C51829DB2F7127DD0019DCF3 /* Frameworks */,
 				C51829DC2F7127DD0019DCF3 /* Resources */,
+				C519840D2F8785A900332B9E /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				C519840B2F8785A900332B9E /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				C51829E02F7127DD0019DCF3 /* GoTato */,
@@ -104,6 +172,28 @@
 			productReference = C51829DE2F7127DD0019DCF3 /* GoTato.app */;
 			productType = "com.apple.product-type.application";
 		};
+		C51983FB2F8785A800332B9E /* BasicWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C51984102F8785A900332B9E /* Build configuration list for PBXNativeTarget "BasicWidgetExtension" */;
+			buildPhases = (
+				C51983F82F8785A800332B9E /* Sources */,
+				C51983F92F8785A800332B9E /* Frameworks */,
+				C51983FA2F8785A800332B9E /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				C51984022F8785A800332B9E /* BasicWidget */,
+			);
+			name = BasicWidgetExtension;
+			packageProductDependencies = (
+			);
+			productName = BasicWidgetExtension;
+			productReference = C51983FC2F8785A800332B9E /* BasicWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -115,6 +205,9 @@
 				LastUpgradeCheck = 2620;
 				TargetAttributes = {
 					C51829DD2F7127DD0019DCF3 = {
+						CreatedOnToolsVersion = 26.2;
+					};
+					C51983FB2F8785A800332B9E = {
 						CreatedOnToolsVersion = 26.2;
 					};
 				};
@@ -141,12 +234,20 @@
 			projectRoot = "";
 			targets = (
 				C51829DD2F7127DD0019DCF3 /* GoTato */,
+				C51983FB2F8785A800332B9E /* BasicWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		C51829DC2F7127DD0019DCF3 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C51983FA2F8785A800332B9E /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -163,7 +264,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C51983F82F8785A800332B9E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		C519840B2F8785A900332B9E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C51983FB2F8785A800332B9E /* BasicWidgetExtension */;
+			targetProxy = C519840A2F8785A900332B9E /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		C51829F62F7127DF0019DCF3 /* Debug */ = {
@@ -373,6 +489,76 @@
 			};
 			name = Release;
 		};
+		C519840E2F8785A900332B9E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = ZUGAVD3728;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = BasicWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = BasicWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.msseock.GoTato.BasicWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		C519840F2F8785A900332B9E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = ZUGAVD3728;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = BasicWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = BasicWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.msseock.GoTato.BasicWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -390,6 +576,15 @@
 			buildConfigurations = (
 				C51829F62F7127DF0019DCF3 /* Debug */,
 				C51829F72F7127DF0019DCF3 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C51984102F8785A900332B9E /* Build configuration list for PBXNativeTarget "BasicWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C519840E2F8785A900332B9E /* Debug */,
+				C519840F2F8785A900332B9E /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
