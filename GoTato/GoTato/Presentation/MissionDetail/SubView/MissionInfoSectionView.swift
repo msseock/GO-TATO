@@ -14,6 +14,7 @@ final class MissionInfoSectionView: UIView {
     private let locationRow   = InfoRowView(icon: "mappin.and.ellipse")
     private let periodRow     = InfoRowView(icon: "calendar")
     private let deadlineRow   = InfoRowView(icon: "clock")
+    private let wifiRow       = InfoRowView(icon: "wifi")
     private let infoStack     = UIStackView()
 
     // MARK: - Init
@@ -34,6 +35,7 @@ final class MissionInfoSectionView: UIView {
         infoStack.addArrangedSubview(locationRow)
         infoStack.addArrangedSubview(periodRow)
         infoStack.addArrangedSubview(deadlineRow)
+        infoStack.addArrangedSubview(wifiRow)
         addSubview(infoStack)
     }
 
@@ -64,7 +66,7 @@ final class MissionInfoSectionView: UIView {
 
     // MARK: - Configure
 
-    func configure(title: String, locationName: String?, startDate: Date, endDate: Date, deadline: Date) {
+    func configure(title: String, locationName: String?, startDate: Date, endDate: Date, deadline: Date, wifiSSID: String?) {
         titleLabel.text = title
 
         if let name = locationName, !name.isEmpty {
@@ -88,6 +90,13 @@ final class MissionInfoSectionView: UIView {
         timeFmt.locale = Locale(identifier: "ko_KR")
         timeFmt.dateFormat = "a h:mm"
         deadlineRow.configure(text: timeFmt.string(from: deadline))
+
+        if let ssid = wifiSSID, !ssid.isEmpty {
+            wifiRow.configure(text: ssid)
+            wifiRow.isHidden = false
+        } else {
+            wifiRow.isHidden = true
+        }
     }
 }
 

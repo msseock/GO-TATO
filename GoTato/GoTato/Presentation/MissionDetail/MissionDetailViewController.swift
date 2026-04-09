@@ -138,7 +138,8 @@ final class MissionDetailViewController: BaseViewController {
                     locationName: info.locationName,
                     startDate:    info.startDate,
                     endDate:      info.endDate,
-                    deadline:     info.deadline
+                    deadline:     info.deadline,
+                    wifiSSID:     info.wifiSSID
                 )
                 self.statsSection.configure(
                     successCount:   info.successCount,
