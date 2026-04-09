@@ -263,6 +263,7 @@ final class MissionDetailViewController: BaseViewController {
             currentLocationName: info.locationName,
             currentDeadline: info.deadline,
             currentSelectedDays: info.selectedDays,
+            currentWifiSSID: info.wifiSSID,
             missionEndDate: info.endDate,
             isMissionEnded: latestIsMissionEnded
         )
@@ -278,6 +279,11 @@ final class MissionDetailViewController: BaseViewController {
             }
             if let days = result.newSelectedDays {
                 self?.editSelectedDaysRelay.accept(days)
+            }
+            switch result.wifiEdit {
+            case .unchanged: break
+            case .set(let ssid): self?.editWifiSSIDRelay.accept(ssid)
+            case .remove:        self?.editWifiSSIDRelay.accept(nil)
             }
         }
         navigationController?.pushViewController(sheet, animated: true)

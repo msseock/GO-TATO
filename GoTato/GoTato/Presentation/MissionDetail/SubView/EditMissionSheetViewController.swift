@@ -11,6 +11,13 @@ struct EditMissionResult {
     let newLocationName: String?
     let newDeadline: Date?
     let newSelectedDays: Set<Int>?
+    let wifiEdit: WifiEdit
+}
+
+enum WifiEdit {
+    case unchanged
+    case set(String)
+    case remove
 }
 
 final class EditMissionSheetViewController: UIViewController {
@@ -26,8 +33,10 @@ final class EditMissionSheetViewController: UIViewController {
     private let currentLocationName: String?
     private let currentDeadline: Date
     private let currentSelectedDays: Set<Int>
+    private let currentWifiSSID: String?
     private let missionEndDate: Date
     private let canEditLocationAndDeadline: Bool
+    private let canEditWifi: Bool
 
     // MARK: - UI — Scroll
 
@@ -54,9 +63,21 @@ final class EditMissionSheetViewController: UIViewController {
 
     private let daySelector = DaySelector()
 
+    // MARK: - UI — WiFi Section
+
+    private let wifiCard          = UIView()
+    private let wifiContentStack  = UIStackView()
+    private let wifiPrimaryLabel  = UILabel()
+    private let wifiMessageLabel  = UILabel()
+    private let wifiButtonStack   = UIStackView()
+    private let wifiPrimaryButton = UIButton(type: .system)
+    private let wifiSecondaryButton = UIButton(type: .system)
+
     // MARK: - State
 
     private var editedSelectedDays: Set<Int>
+    private var wifiEdit: WifiEdit = .unchanged
+    private var wifiCaptureFailed: Bool = false
 
     // MARK: - Init
 
@@ -66,6 +87,7 @@ final class EditMissionSheetViewController: UIViewController {
         currentLocationName: String?,
         currentDeadline: Date,
         currentSelectedDays: Set<Int>,
+        currentWifiSSID: String?,
         missionEndDate: Date,
         isMissionEnded: Bool
     ) {
@@ -74,8 +96,10 @@ final class EditMissionSheetViewController: UIViewController {
         self.currentLocationName        = currentLocationName
         self.currentDeadline            = currentDeadline
         self.currentSelectedDays        = currentSelectedDays
+        self.currentWifiSSID            = currentWifiSSID
         self.missionEndDate             = missionEndDate
         self.canEditLocationAndDeadline = !isMissionEnded
+        self.canEditWifi                = !isMissionEnded && currentLocationName != nil
         self.editedSelectedDays         = currentSelectedDays
         super.init(nibName: nil, bundle: nil)
     }
@@ -163,6 +187,34 @@ final class EditMissionSheetViewController: UIViewController {
 
         // Day selector
         setupDaySelector()
+
+        // WiFi card
+        wifiCard.backgroundColor    = GTTColor.bgPrimary
+        wifiCard.layer.cornerRadius = 12
+
+        wifiContentStack.axis    = .vertical
+        wifiContentStack.spacing = 10
+        wifiContentStack.alignment = .fill
+
+        wifiPrimaryLabel.font          = GTTFont.body.font
+        wifiPrimaryLabel.textColor     = GTTColor.textPrimary
+        wifiPrimaryLabel.numberOfLines = 0
+
+        wifiMessageLabel.font          = GTTFont.caption.font
+        wifiMessageLabel.textColor     = GTTColor.textSecondary
+        wifiMessageLabel.numberOfLines = 0
+
+        wifiButtonStack.axis    = .horizontal
+        wifiButtonStack.spacing = 12
+        wifiButtonStack.alignment = .center
+
+        wifiPrimaryButton.titleLabel?.font = GTTFont.caption.font
+        wifiPrimaryButton.setTitleColor(GTTColor.brand, for: .normal)
+        wifiPrimaryButton.addTarget(self, action: #selector(didTapWifiPrimary), for: .touchUpInside)
+
+        wifiSecondaryButton.titleLabel?.font = GTTFont.caption.font
+        wifiSecondaryButton.setTitleColor(GTTColor.error, for: .normal)
+        wifiSecondaryButton.addTarget(self, action: #selector(didTapWifiSecondary), for: .touchUpInside)
     }
 
     private func setupDaySelector() {
@@ -258,6 +310,24 @@ final class EditMissionSheetViewController: UIViewController {
             )
             contentStack.addArrangedSubview(daySection)
         }
+
+        // WiFi 인증 section (only if mission not ended and has location)
+        if canEditWifi {
+            wifiCard.addSubview(wifiContentStack)
+            wifiContentStack.addArrangedSubview(wifiPrimaryLabel)
+            wifiContentStack.addArrangedSubview(wifiMessageLabel)
+            wifiButtonStack.addArrangedSubview(wifiPrimaryButton)
+            wifiButtonStack.addArrangedSubview(wifiSecondaryButton)
+            wifiButtonStack.addArrangedSubview(UIView())
+            wifiContentStack.addArrangedSubview(wifiButtonStack)
+
+            let wifiSection = makeSectionStack(
+                headerText: "WiFi 인증",
+                card: wifiCard
+            )
+            contentStack.addArrangedSubview(wifiSection)
+            renderWifiSection()
+        }
     }
 
     private func makeSectionStack(headerText: String, card: UIView, footer: UIView? = nil) -> UIStackView {
@@ -304,6 +374,12 @@ final class EditMissionSheetViewController: UIViewController {
         // Time picker card fills naturally (wheels picker is ~216pt tall)
         if canEditLocationAndDeadline {
             timePicker.snp.makeConstraints { $0.edges.equalToSuperview() }
+        }
+
+        if canEditWifi {
+            wifiContentStack.snp.makeConstraints {
+                $0.edges.equalToSuperview().inset(UIEdgeInsets(top: 14, left: 16, bottom: 14, right: 16))
+            }
         }
     }
 
@@ -356,8 +432,18 @@ final class EditMissionSheetViewController: UIViewController {
             daysChanged = editedSelectedDays != currentSelectedDays && !editedSelectedDays.isEmpty
         }
 
-        let hasValidChange   = titleChanged || locationChanged || deadlineChanged || daysChanged
-        let hasBlockingError = titleError != nil
+        // WiFi changed
+        var wifiChanged = false
+        if canEditWifi {
+            switch wifiEdit {
+            case .unchanged: wifiChanged = false
+            case .set(let s): wifiChanged = s != currentWifiSSID
+            case .remove:    wifiChanged = currentWifiSSID != nil
+            }
+        }
+
+        let hasValidChange   = titleChanged || locationChanged || deadlineChanged || daysChanged || wifiChanged
+        let hasBlockingError = titleError != nil || (canEditWifi && wifiCaptureFailed)
 
         let enabled = hasValidChange && !hasBlockingError
         navigationItem.rightBarButtonItem?.isEnabled = enabled
@@ -403,13 +489,138 @@ final class EditMissionSheetViewController: UIViewController {
             newSelectedDays = nil
         }
 
+        let resolvedWifiEdit: WifiEdit
+        if canEditWifi {
+            switch wifiEdit {
+            case .unchanged:
+                resolvedWifiEdit = .unchanged
+            case .set(let s):
+                resolvedWifiEdit = (s == currentWifiSSID) ? .unchanged : .set(s)
+            case .remove:
+                resolvedWifiEdit = (currentWifiSSID == nil) ? .unchanged : .remove
+            }
+        } else {
+            resolvedWifiEdit = .unchanged
+        }
+
         onConfirm?(EditMissionResult(
             newTitle: newTitle,
             newLocationName: newLocationName,
             newDeadline: newDeadline,
-            newSelectedDays: newSelectedDays
+            newSelectedDays: newSelectedDays,
+            wifiEdit: resolvedWifiEdit
         ))
         navigationController?.popViewController(animated: true)
+    }
+
+    // MARK: - WiFi Section
+
+    private func renderWifiSection() {
+        wifiMessageLabel.isHidden = true
+        wifiSecondaryButton.isHidden = true
+        wifiPrimaryButton.isHidden = false
+        wifiPrimaryButton.setTitleColor(GTTColor.brand, for: .normal)
+        wifiSecondaryButton.setTitleColor(GTTColor.error, for: .normal)
+
+        if wifiCaptureFailed {
+            wifiPrimaryLabel.text = "WiFi 정보를 가져올 수 없어요"
+            wifiPrimaryLabel.textColor = GTTColor.textPrimary
+            wifiMessageLabel.isHidden = false
+            wifiMessageLabel.text = "위치 권한을 \"항상 허용\"과 \"정확한 위치\"로 설정한 뒤, 출근 장소의 WiFi에 연결해 다시 시도해주세요. (시뮬레이터에서는 동작하지 않습니다)"
+            wifiPrimaryButton.setTitle("다시 시도", for: .normal)
+            wifiSecondaryButton.isHidden = false
+            wifiSecondaryButton.setTitle("취소", for: .normal)
+            wifiSecondaryButton.setTitleColor(GTTColor.textSecondary, for: .normal)
+            return
+        }
+
+        switch wifiEdit {
+        case .unchanged:
+            if let ssid = currentWifiSSID {
+                wifiPrimaryLabel.text = ssid
+                wifiPrimaryLabel.textColor = GTTColor.textPrimary
+                wifiPrimaryButton.setTitle("재캡처", for: .normal)
+                wifiSecondaryButton.isHidden = false
+                wifiSecondaryButton.setTitle("삭제", for: .normal)
+            } else {
+                wifiPrimaryLabel.text = "WiFi 인증이 설정되지 않았어요"
+                wifiPrimaryLabel.textColor = GTTColor.textSecondary
+                wifiPrimaryButton.setTitle("WiFi 인증 추가하기", for: .normal)
+            }
+        case .set(let ssid):
+            wifiPrimaryLabel.text = ssid
+            wifiPrimaryLabel.textColor = GTTColor.textPrimary
+            wifiMessageLabel.isHidden = false
+            wifiMessageLabel.text = currentWifiSSID == nil ? "새로 추가됩니다" : "변경됩니다"
+            wifiPrimaryButton.setTitle("재캡처", for: .normal)
+            wifiSecondaryButton.isHidden = false
+            wifiSecondaryButton.setTitle("되돌리기", for: .normal)
+            wifiSecondaryButton.setTitleColor(GTTColor.textSecondary, for: .normal)
+        case .remove:
+            wifiPrimaryLabel.text = "WiFi 인증이 삭제됩니다"
+            wifiPrimaryLabel.textColor = GTTColor.textPrimary
+            wifiPrimaryButton.setTitle("되돌리기", for: .normal)
+            wifiPrimaryButton.setTitleColor(GTTColor.textSecondary, for: .normal)
+        }
+    }
+
+    @objc private func didTapWifiPrimary() {
+        view.endEditing(true)
+        if wifiCaptureFailed {
+            captureWifiSSID()
+            return
+        }
+        switch wifiEdit {
+        case .unchanged:
+            if currentWifiSSID == nil {
+                captureWifiSSID()
+            } else {
+                captureWifiSSID()
+            }
+        case .set:
+            captureWifiSSID()
+        case .remove:
+            wifiEdit = .unchanged
+            renderWifiSection()
+            updateConfirmState()
+        }
+    }
+
+    @objc private func didTapWifiSecondary() {
+        view.endEditing(true)
+        if wifiCaptureFailed {
+            wifiCaptureFailed = false
+            renderWifiSection()
+            updateConfirmState()
+            return
+        }
+        switch wifiEdit {
+        case .unchanged:
+            // 기존 SSID 삭제
+            wifiEdit = .remove
+        case .set:
+            wifiEdit = .unchanged
+        case .remove:
+            wifiEdit = .unchanged
+        }
+        renderWifiSection()
+        updateConfirmState()
+    }
+
+    private func captureWifiSSID() {
+        WifiService.fetchCurrentSSID { [weak self] ssid in
+            guard let self else { return }
+            DispatchQueue.main.async {
+                if let ssid = ssid {
+                    self.wifiCaptureFailed = false
+                    self.wifiEdit = .set(ssid)
+                } else {
+                    self.wifiCaptureFailed = true
+                }
+                self.renderWifiSection()
+                self.updateConfirmState()
+            }
+        }
     }
 }
 
