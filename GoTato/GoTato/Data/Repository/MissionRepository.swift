@@ -12,10 +12,11 @@ protocol MissionRepositoryProtocol {
     func fetchActiveMissions() -> Single<[Mission]>
     func fetchTodayActiveMissions() -> Single<[Mission]>
     func fetchMission(id: UUID) -> Single<Mission?>
-    func createMission(title: String, deadline: Date, startDate: Date, endDate: Date, selectedDays: Set<Int>, location: Location) -> Single<UUID>
+    func createMission(title: String, deadline: Date, startDate: Date, endDate: Date, selectedDays: Set<Int>, location: Location, wifiSSID: String?) -> Single<UUID>
     func updateTitle(missionID: UUID, newTitle: String) -> Single<Void>
     func updateDeadline(missionID: UUID, newDeadline: Date) -> Single<Void>
     func updateSelectedDays(missionID: UUID, newDays: Set<Int>) -> Single<Void>
+    func updateWifiSSID(missionID: UUID, newSSID: String?) -> Single<Void>
     func extendMission(missionID: UUID, newEndDate: Date) -> Single<Void>
     func deleteMission(missionID: UUID) -> Single<Void>
 }
@@ -123,7 +124,7 @@ final class MissionRepository: MissionRepositoryProtocol {
     /// 미션 생성.
     /// 사이드 이펙트: startDate~endDate 각 날짜에 Attendance 일괄 생성.
     /// DATABASE.md 제약 조건: 기간 오버랩 미션 10개 제한, deadline ±5분 충돌, 기간 1달 초과.
-    func createMission(title: String, deadline: Date, startDate: Date, endDate: Date, selectedDays: Set<Int>, location: Location) -> Single<UUID> {
+    func createMission(title: String, deadline: Date, startDate: Date, endDate: Date, selectedDays: Set<Int>, location: Location, wifiSSID: String? = nil) -> Single<UUID> {
         let locationID = location.objectID
 
         return stack.performBackgroundTask { ctx in
@@ -181,6 +182,7 @@ final class MissionRepository: MissionRepositoryProtocol {
             mission.startDate    = startDate
             mission.endDate      = endDate
             mission.selectedDays = selectedDays
+            mission.wifiSSID     = wifiSSID
             // NSManagedObject는 컨텍스트 간 직접 전달 불가 → objectID로 재조회
             mission.location  = ctx.object(with: locationID) as? Location
 
@@ -375,6 +377,22 @@ final class MissionRepository: MissionRepositoryProtocol {
             #if DEBUG
             print("[DB][Mission] ✅ updateSelectedDays 완료 - 삭제 \(deletedCount)개, 생성 \(createdCount)개")
             #endif
+        }
+    }
+
+    /// WiFi SSID 수정. nil 전달 시 WiFi 인증 옵션 해제.
+    func updateWifiSSID(missionID: UUID, newSSID: String?) -> Single<Void> {
+        return stack.performBackgroundTask { ctx in
+            let request = Mission.fetchRequest()
+            request.predicate = NSPredicate(format: "id == %@", missionID as CVarArg)
+            request.fetchLimit = 1
+            guard let mission = try ctx.fetch(request).first else {
+                throw RepositoryError.notFound
+            }
+            #if DEBUG
+            print("[DB][Mission] updateWifiSSID: \"\(mission.wifiSSID ?? "nil")\" → \"\(newSSID ?? "nil")\"")
+            #endif
+            mission.wifiSSID = newSSID
         }
     }
 
