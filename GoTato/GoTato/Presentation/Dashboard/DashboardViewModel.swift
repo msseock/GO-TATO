@@ -33,6 +33,8 @@ final class DashboardViewModel: BaseViewModel {
 
     private var rawPairs: [(mission: Mission, attendance: Attendance)] = []
     private var currentLocation: CLLocation?
+    /// 비동기로 fetch된 현재 연결 WiFi의 SSID. NEHotspotNetwork 결과 캐시.
+    private var currentWifiSSID: String?
 
     private let statesRelay = BehaviorRelay<[DashboardMissionState]>(value: [])
 
@@ -88,8 +90,10 @@ final class DashboardViewModel: BaseViewModel {
         locationService.currentLocation
             .observe(on: MainScheduler.instance)
             .subscribe(onNext: { [weak self] location in
-                self?.currentLocation = location
-                self?.recalculateStates()
+                guard let self else { return }
+                self.currentLocation = location
+                self.refreshWifiSSID()
+                self.recalculateStates()
             })
             .disposed(by: bag)
 
@@ -381,6 +385,38 @@ final class DashboardViewModel: BaseViewModel {
         }
     }
 
+    /// 비동기로 현재 WiFi SSID 갱신 후 state 재계산.
+    /// 호출 조건: WiFi 옵션을 쓰는 미션 중 하나라도 현재 위치에서 100m 이내일 때만.
+    private func refreshWifiSSID() {
+        guard let current = currentLocation else {
+            currentWifiSSID = nil
+            return
+        }
+
+        let isAnyWifiMissionInRange = rawPairs.contains { pair in
+            guard let ssid = pair.mission.wifiSSID, !ssid.isEmpty,
+                  let lat = pair.mission.location?.lati,
+                  let lng = pair.mission.location?.longi else { return false }
+            let dest = CLLocation(latitude: lat, longitude: lng)
+            return current.distance(from: dest) <= 100
+        }
+
+        guard isAnyWifiMissionInRange else {
+            // 100m 밖이면 캐시 비우고 종료 (다음에 가까워지면 재조회됨)
+            if currentWifiSSID != nil {
+                currentWifiSSID = nil
+            }
+            return
+        }
+
+        WifiService.fetchCurrentSSID { [weak self] ssid in
+            guard let self else { return }
+            let changed = self.currentWifiSSID != ssid
+            self.currentWifiSSID = ssid
+            if changed { self.recalculateStates() }
+        }
+    }
+
     /// 진행 중인 미션의 카드 상태와 20m 이내 여부를 함께 반환
     private func buildOngoingState(mission: Mission) -> (cardState: OngoingMissionCardState, isNear: Bool) {
         let locationName = mission.location?.name ?? ""
@@ -407,8 +443,15 @@ final class DashboardViewModel: BaseViewModel {
             lng: current.coordinate.longitude
         )
 
-        // 100미터 이내면 출근 인증 버튼 활성화
-        if distance <= 100 {
+        // WiFi 인증 옵션이 설정된 미션이면 SSID 일치 여부도 함께 검사
+        // (currentWifiSSID는 비동기로 갱신되는 캐시 값)
+        let isWifiOK: Bool = {
+            guard let requiredSSID = mission.wifiSSID, !requiredSSID.isEmpty else { return true }
+            return currentWifiSSID == requiredSSID
+        }()
+
+        // 100미터 이내 + WiFi 조건 충족이면 출근 인증 버튼 활성화
+        if distance <= 100 && isWifiOK {
             return (
                 .nearDestination(
                     locationName: locationName,
