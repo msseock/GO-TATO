@@ -35,6 +35,7 @@ final class DashboardPageContentViewController: UIViewController {
     private let messageCardView = DashBoardMessageCardView()
     private let mainActionContainer = UIView()
     private let bottomButtonContainer = UIView()
+    private let wifiWarningLabel = UILabel()
     private let refreshControl = UIRefreshControl()
 
     private var currentMainView: UIView?
@@ -97,6 +98,7 @@ final class DashboardPageContentViewController: UIViewController {
         contentStack.addArrangedSubview(messageCardView)
         contentStack.addArrangedSubview(mainActionContainer)
         contentStack.addArrangedSubview(bottomButtonContainer)
+        contentStack.addArrangedSubview(wifiWarningLabel)
     }
 
     private func setupLayout() {
@@ -156,6 +158,13 @@ final class DashboardPageContentViewController: UIViewController {
         contentStack.spacing = 12
         contentStack.setCustomSpacing(4, after: titleLabel)
         contentStack.setCustomSpacing(16, after: mainActionContainer)
+        contentStack.setCustomSpacing(8, after: bottomButtonContainer)
+
+        wifiWarningLabel.font = GTTFont.caption.font
+        wifiWarningLabel.textColor = GTTColor.error
+        wifiWarningLabel.numberOfLines = 0
+        wifiWarningLabel.textAlignment = .center
+        wifiWarningLabel.isHidden = true
     }
 
     // MARK: - Actions
@@ -174,8 +183,15 @@ final class DashboardPageContentViewController: UIViewController {
         titleLabel.text = state.title
         deadlineLabel.text = state.deadline
         messageCardView.configure(state: state.messageCardState)
-        updateMainAction(state.mainActionState)
+        updateMainAction(state.mainActionState, wifiSSID: state.wifiSSID)
         updateBottomButton(state.bottomButtonState)
+
+        if let warning = state.wifiWarning {
+            wifiWarningLabel.text = warning
+            wifiWarningLabel.isHidden = false
+        } else {
+            wifiWarningLabel.isHidden = true
+        }
 
         // 출근 성공 상태인 경우 새로고침이 필요 없으므로 리프레시 컨트롤 비활성화
         if case .success = state.mainActionState {
@@ -185,11 +201,11 @@ final class DashboardPageContentViewController: UIViewController {
         }
     }
 
-    private func updateMainAction(_ mainState: MainActionState) {
+    private func updateMainAction(_ mainState: MainActionState, wifiSSID: String?) {
         // Optimise: update OngoingMissionCardView in place to avoid map reload
         if case .ongoing(let cardState) = mainState,
            let existingCard = currentMainView as? OngoingMissionCardView {
-            existingCard.configure(state: cardState)
+            existingCard.configure(state: cardState, wifiSSID: wifiSSID)
             return
         }
 
@@ -206,7 +222,7 @@ final class DashboardPageContentViewController: UIViewController {
 
         case .ongoing(let cardState):
             let v = OngoingMissionCardView()
-            v.configure(state: cardState)
+            v.configure(state: cardState, wifiSSID: wifiSSID)
             v.onRefreshTap = { [weak self] in self?.onRefreshTapped?() }
             newView = v
 

@@ -89,6 +89,9 @@ final class OngoingMissionCardView: UIView {
     private let headerStack = UIStackView()
     private let labelStack = UIStackView()
     private let missionLabel = UILabel()
+    private let wifiBadgeStack = UIStackView()
+    private let wifiBadgeIcon = UIImageView()
+    private let wifiBadgeLabel = UILabel()
     private let locationNameLabel = UILabel()
     private let refreshButton = GTTIconButton(
         systemName: "arrow.trianglehead.counterclockwise",
@@ -135,7 +138,10 @@ final class OngoingMissionCardView: UIView {
     // MARK: - Setup
 
     private func setupHierarchy() {
+        wifiBadgeStack.addArrangedSubview(wifiBadgeIcon)
+        wifiBadgeStack.addArrangedSubview(wifiBadgeLabel)
         labelStack.addArrangedSubview(missionLabel)
+        labelStack.addArrangedSubview(wifiBadgeStack)
         labelStack.addArrangedSubview(locationNameLabel)
         headerStack.addArrangedSubview(labelStack)
         headerStack.addArrangedSubview(refreshButton)
@@ -211,6 +217,22 @@ final class OngoingMissionCardView: UIView {
         missionLabel.font = GTTFont.captionSmall.font
         missionLabel.textColor = GTTColor.textQuiet
 
+        wifiBadgeStack.axis = .horizontal
+        wifiBadgeStack.spacing = 4
+        wifiBadgeStack.alignment = .center
+        wifiBadgeStack.isHidden = true
+
+        let wifiSymbolConfig = UIImage.SymbolConfiguration(pointSize: 11, weight: .semibold)
+        wifiBadgeIcon.image = UIImage(systemName: "wifi", withConfiguration: wifiSymbolConfig)
+        wifiBadgeIcon.tintColor = GTTColor.textQuiet
+        wifiBadgeIcon.contentMode = .scaleAspectFit
+        wifiBadgeIcon.snp.makeConstraints {
+            $0.width.height.equalTo(14)
+        }
+
+        wifiBadgeLabel.font = GTTFont.captionSmall.font
+        wifiBadgeLabel.textColor = GTTColor.textQuiet
+
         locationNameLabel.font = GTTFont.subHeading.font
         locationNameLabel.textColor = GTTColor.black
 
@@ -248,10 +270,18 @@ final class OngoingMissionCardView: UIView {
 
     // MARK: - Configure
 
-    func configure(state: OngoingMissionCardState) {
+    func configure(state: OngoingMissionCardState, wifiSSID: String? = nil) {
         locationNameLabel.text = state.locationName
         chipMainLabel.text = state.chipText
         chipSubLabel.isHidden = !state.showSubLabel
+        if let ssid = wifiSSID, !ssid.isEmpty {
+            missionLabel.isHidden = true
+            wifiBadgeStack.isHidden = false
+            wifiBadgeLabel.text = ssid
+        } else {
+            missionLabel.isHidden = false
+            wifiBadgeStack.isHidden = true
+        }
         updateMap(currentCoord: state.currentCoord, destinationCoord: state.destinationCoord)
     }
 

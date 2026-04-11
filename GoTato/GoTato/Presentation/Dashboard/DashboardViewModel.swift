@@ -73,6 +73,7 @@ final class DashboardViewModel: BaseViewModel {
             .subscribe(onNext: { [weak self] pairs in
                 guard let self else { return }
                 self.rawPairs = pairs
+                self.refreshWifiSSID()
                 self.recalculateStates()
                 isRefreshingRelay.accept(false)
             })
@@ -97,10 +98,11 @@ final class DashboardViewModel: BaseViewModel {
             })
             .disposed(by: bag)
 
-        // Refresh button → recalculate with latest location
+        // Refresh button → recalculate with latest location & WiFi
         input.refreshButtonTapped
             .observe(on: MainScheduler.instance)
             .subscribe(onNext: { [weak self] _ in
+                self?.refreshWifiSSID()
                 self?.recalculateStates()
             })
             .disposed(by: bag)
@@ -140,7 +142,9 @@ final class DashboardViewModel: BaseViewModel {
                         mainActionState: s.mainActionState,
                         bottomButtonState: .checkIn(isEnabled: false),
                         attendanceID: s.attendanceID,
-                        missionID: s.missionID
+                        missionID: s.missionID,
+                        wifiSSID: s.wifiSSID,
+                        wifiWarning: s.wifiWarning
                     )
                     self.statesRelay.accept(states)
                 }
@@ -180,7 +184,9 @@ final class DashboardViewModel: BaseViewModel {
                         mainActionState: .failedCommitted,
                         bottomButtonState: .hidden,
                         attendanceID: s.attendanceID,
-                        missionID: s.missionID
+                        missionID: s.missionID,
+                        wifiSSID: s.wifiSSID,
+                        wifiWarning: nil
                     )
                     self.statesRelay.accept(states)
                 }
@@ -279,6 +285,10 @@ final class DashboardViewModel: BaseViewModel {
         let attendanceID = attendance.id
         let missionID = mission.id
         let deadlineStr = formatDeadline(planDate)
+        let missionWifiSSID: String? = {
+            if let s = mission.wifiSSID, !s.isEmpty { return s }
+            return nil
+        }()
 
         let authStatus = locationService.authorizationStatus.value
         let isLocationDenied = authStatus == .denied || authStatus == .restricted
@@ -292,7 +302,9 @@ final class DashboardViewModel: BaseViewModel {
                 mainActionState: .failedCommitted,
                 bottomButtonState: .hidden,
                 attendanceID: attendanceID,
-                missionID: missionID
+                missionID: missionID,
+                wifiSSID: missionWifiSSID,
+                wifiWarning: nil
             )
         }
 
@@ -307,7 +319,9 @@ final class DashboardViewModel: BaseViewModel {
                     mainActionState: .success(recordDate: recordDate, locationName: locationName),
                     bottomButtonState: .hidden,
                     attendanceID: attendanceID,
-                    missionID: missionID
+                    missionID: missionID,
+                    wifiSSID: missionWifiSSID,
+                    wifiWarning: nil
                 )
             } else {
                 // 지각출근 성공 (1.4)
@@ -319,7 +333,9 @@ final class DashboardViewModel: BaseViewModel {
                     mainActionState: .success(recordDate: recordDate, locationName: locationName),
                     bottomButtonState: .hidden,
                     attendanceID: attendanceID,
-                    missionID: missionID
+                    missionID: missionID,
+                    wifiSSID: missionWifiSSID,
+                    wifiWarning: nil
                 )
             }
         } else if now >= threeHoursAfterPlan {
@@ -331,7 +347,9 @@ final class DashboardViewModel: BaseViewModel {
                 mainActionState: .failed,
                 bottomButtonState: .commit,
                 attendanceID: attendanceID,
-                missionID: missionID
+                missionID: missionID,
+                wifiSSID: missionWifiSSID,
+                wifiWarning: nil
             )
         } else if now >= planDate {
             // 지각출근중 (1.2)
@@ -344,7 +362,9 @@ final class DashboardViewModel: BaseViewModel {
                     mainActionState: .locationPermissionDenied,
                     bottomButtonState: .checkIn(isEnabled: false),
                     attendanceID: attendanceID,
-                    missionID: missionID
+                    missionID: missionID,
+                    wifiSSID: missionWifiSSID,
+                    wifiWarning: nil
                 )
             }
             let ongoing = buildOngoingState(mission: mission)
@@ -355,7 +375,9 @@ final class DashboardViewModel: BaseViewModel {
                 mainActionState: .ongoing(ongoing.cardState),
                 bottomButtonState: .checkIn(isEnabled: ongoing.isNear),
                 attendanceID: attendanceID,
-                missionID: missionID
+                missionID: missionID,
+                wifiSSID: missionWifiSSID,
+                wifiWarning: ongoing.wifiWarning
             )
         } else {
             // 정상출근중 (1.1)
@@ -369,7 +391,9 @@ final class DashboardViewModel: BaseViewModel {
                     mainActionState: .locationPermissionDenied,
                     bottomButtonState: .checkIn(isEnabled: false),
                     attendanceID: attendanceID,
-                    missionID: missionID
+                    missionID: missionID,
+                    wifiSSID: missionWifiSSID,
+                    wifiWarning: nil
                 )
             }
             let ongoing = buildOngoingState(mission: mission)
@@ -380,7 +404,9 @@ final class DashboardViewModel: BaseViewModel {
                 mainActionState: .ongoing(ongoing.cardState),
                 bottomButtonState: .checkIn(isEnabled: ongoing.isNear),
                 attendanceID: attendanceID,
-                missionID: missionID
+                missionID: missionID,
+                wifiSSID: missionWifiSSID,
+                wifiWarning: ongoing.wifiWarning
             )
         }
     }
@@ -417,8 +443,8 @@ final class DashboardViewModel: BaseViewModel {
         }
     }
 
-    /// 진행 중인 미션의 카드 상태와 20m 이내 여부를 함께 반환
-    private func buildOngoingState(mission: Mission) -> (cardState: OngoingMissionCardState, isNear: Bool) {
+    /// 진행 중인 미션의 카드 상태와 20m 이내 여부, WiFi 경고문구를 함께 반환
+    private func buildOngoingState(mission: Mission) -> (cardState: OngoingMissionCardState, isNear: Bool, wifiWarning: String?) {
         let locationName = mission.location?.name ?? ""
         let destLat = mission.location?.lati ?? 0
         let destLng = mission.location?.longi ?? 0
@@ -432,7 +458,8 @@ final class DashboardViewModel: BaseViewModel {
                     destinationCoord: destCoord,
                     distance: "---"
                 ),
-                false
+                false,
+                nil
             )
         }
 
@@ -458,9 +485,15 @@ final class DashboardViewModel: BaseViewModel {
                     currentCoord: currentCoord,
                     destinationCoord: destCoord
                 ),
-                true
+                true,
+                nil
             )
         } else {
+            // 위치는 100m 이내이지만 WiFi 조건을 만족하지 않는 경우 → 경고문구 노출
+            var wifiWarning: String? = nil
+            if distance <= 100, !isWifiOK, let requiredSSID = mission.wifiSSID, !requiredSSID.isEmpty {
+                wifiWarning = "도착 위치에는 가까워졌지만 등록된 WiFi(\"\(requiredSSID)\")에 연결되어 있지 않아 인증할 수 없어요. WiFi에 연결한 뒤 다시 시도해주세요."
+            }
             return (
                 .farFromDestination(
                     locationName: locationName,
@@ -468,7 +501,8 @@ final class DashboardViewModel: BaseViewModel {
                     destinationCoord: destCoord,
                     distance: formatDistance(distance)
                 ),
-                false
+                false,
+                wifiWarning
             )
         }
     }

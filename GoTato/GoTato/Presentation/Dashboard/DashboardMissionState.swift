@@ -13,6 +13,8 @@ struct DashboardMissionState {
     let bottomButtonState: BottomButtonState
     let attendanceID: UUID?
     let missionID: UUID?
+    let wifiSSID: String?
+    let wifiWarning: String?
 }
 
 enum MainActionState {
