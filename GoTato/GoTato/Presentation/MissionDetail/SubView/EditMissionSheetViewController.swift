@@ -4,6 +4,7 @@
 //
 
 import UIKit
+import Vision
 import SnapKit
 
 struct EditMissionResult {
@@ -12,11 +13,18 @@ struct EditMissionResult {
     let newDeadline: Date?
     let newSelectedDays: Set<Int>?
     let wifiEdit: WifiEdit
+    let photoEdit: PhotoEdit
 }
 
 enum WifiEdit {
     case unchanged
     case set(String)
+    case remove
+}
+
+enum PhotoEdit {
+    case unchanged
+    case set(UIImage, VNFeaturePrintObservation)
     case remove
 }
 
@@ -34,9 +42,11 @@ final class EditMissionSheetViewController: UIViewController {
     private let currentDeadline: Date
     private let currentSelectedDays: Set<Int>
     private let currentWifiSSID: String?
+    private let missionID: UUID?
     private let missionEndDate: Date
     private let canEditLocationAndDeadline: Bool
     private let canEditWifi: Bool
+    private let canEditPhoto: Bool
 
     // MARK: - UI — Scroll
 
@@ -73,11 +83,24 @@ final class EditMissionSheetViewController: UIViewController {
     private let wifiPrimaryButton = UIButton(type: .system)
     private let wifiSecondaryButton = UIButton(type: .system)
 
+    // MARK: - UI — Photo Section
+
+    private let photoCard             = UIView()
+    private let photoContentStack     = UIStackView()
+    private let photoPreviewImageView = UIImageView()
+    private let photoStatusLabel      = UILabel()
+    private let photoMessageLabel     = UILabel()
+    private let photoButtonStack      = UIStackView()
+    private let photoRetakeButton     = UIButton(type: .system)
+    private let photoRemoveButton     = UIButton(type: .system)
+
     // MARK: - State
 
     private var editedSelectedDays: Set<Int>
     private var wifiEdit: WifiEdit = .unchanged
     private var wifiCaptureFailed: Bool = false
+    private var photoEdit: PhotoEdit = .unchanged
+    private var photoAspectConstraint: Constraint?
 
     // MARK: - Init
 
@@ -88,6 +111,7 @@ final class EditMissionSheetViewController: UIViewController {
         currentDeadline: Date,
         currentSelectedDays: Set<Int>,
         currentWifiSSID: String?,
+        missionID: UUID?,
         missionEndDate: Date,
         isMissionEnded: Bool
     ) {
@@ -97,9 +121,11 @@ final class EditMissionSheetViewController: UIViewController {
         self.currentDeadline            = currentDeadline
         self.currentSelectedDays        = currentSelectedDays
         self.currentWifiSSID            = currentWifiSSID
+        self.missionID                  = missionID
         self.missionEndDate             = missionEndDate
         self.canEditLocationAndDeadline = !isMissionEnded
         self.canEditWifi                = !isMissionEnded && currentLocationName != nil
+        self.canEditPhoto               = !isMissionEnded
         self.editedSelectedDays         = currentSelectedDays
         super.init(nibName: nil, bundle: nil)
     }
@@ -328,6 +354,60 @@ final class EditMissionSheetViewController: UIViewController {
             contentStack.addArrangedSubview(wifiSection)
             renderWifiSection()
         }
+
+        // 사진 인증 section (only if mission not ended)
+        if canEditPhoto {
+            setupPhotoCardUI()
+
+            photoCard.addSubview(photoContentStack)
+            photoContentStack.addArrangedSubview(photoPreviewImageView)
+            photoContentStack.addArrangedSubview(photoStatusLabel)
+            photoContentStack.addArrangedSubview(photoMessageLabel)
+            photoButtonStack.addArrangedSubview(photoRetakeButton)
+            photoButtonStack.addArrangedSubview(photoRemoveButton)
+            photoButtonStack.addArrangedSubview(UIView())
+            photoContentStack.addArrangedSubview(photoButtonStack)
+
+            let photoSection = makeSectionStack(headerText: "사진 인증", card: photoCard)
+            contentStack.addArrangedSubview(photoSection)
+            renderPhotoSection()
+        }
+    }
+
+    private func setupPhotoCardUI() {
+        photoCard.backgroundColor    = GTTColor.bgPrimary
+        photoCard.layer.cornerRadius = 12
+        photoCard.clipsToBounds      = true
+
+        photoContentStack.axis      = .vertical
+        photoContentStack.spacing   = 10
+        photoContentStack.alignment = .fill
+
+        photoPreviewImageView.contentMode        = .scaleAspectFill
+        photoPreviewImageView.clipsToBounds      = true
+        photoPreviewImageView.layer.cornerRadius = 8
+        photoPreviewImageView.isHidden           = true
+
+        photoStatusLabel.font          = GTTFont.body.font
+        photoStatusLabel.textColor     = GTTColor.textPrimary
+        photoStatusLabel.numberOfLines = 0
+
+        photoMessageLabel.font          = GTTFont.caption.font
+        photoMessageLabel.textColor     = GTTColor.textSecondary
+        photoMessageLabel.numberOfLines = 0
+        photoMessageLabel.isHidden      = true
+
+        photoButtonStack.axis      = .horizontal
+        photoButtonStack.spacing   = 16
+        photoButtonStack.alignment = .center
+
+        photoRetakeButton.setTitleColor(GTTColor.brand, for: .normal)
+        photoRetakeButton.titleLabel?.font = GTTFont.caption.font
+        photoRetakeButton.addTarget(self, action: #selector(didTapPhotoRetake), for: .touchUpInside)
+
+        photoRemoveButton.setTitleColor(GTTColor.error, for: .normal)
+        photoRemoveButton.titleLabel?.font = GTTFont.caption.font
+        photoRemoveButton.addTarget(self, action: #selector(didTapPhotoRemove), for: .touchUpInside)
     }
 
     private func makeSectionStack(headerText: String, card: UIView, footer: UIView? = nil) -> UIStackView {
@@ -378,6 +458,12 @@ final class EditMissionSheetViewController: UIViewController {
 
         if canEditWifi {
             wifiContentStack.snp.makeConstraints {
+                $0.edges.equalToSuperview().inset(UIEdgeInsets(top: 14, left: 16, bottom: 14, right: 16))
+            }
+        }
+
+        if canEditPhoto {
+            photoContentStack.snp.makeConstraints {
                 $0.edges.equalToSuperview().inset(UIEdgeInsets(top: 14, left: 16, bottom: 14, right: 16))
             }
         }
@@ -442,7 +528,15 @@ final class EditMissionSheetViewController: UIViewController {
             }
         }
 
-        let hasValidChange   = titleChanged || locationChanged || deadlineChanged || daysChanged || wifiChanged
+        var photoChanged = false
+        if canEditPhoto {
+            switch photoEdit {
+            case .unchanged: photoChanged = false
+            case .set, .remove: photoChanged = true
+            }
+        }
+
+        let hasValidChange   = titleChanged || locationChanged || deadlineChanged || daysChanged || wifiChanged || photoChanged
         let hasBlockingError = titleError != nil || (canEditWifi && wifiCaptureFailed)
 
         let enabled = hasValidChange && !hasBlockingError
@@ -508,7 +602,8 @@ final class EditMissionSheetViewController: UIViewController {
             newLocationName: newLocationName,
             newDeadline: newDeadline,
             newSelectedDays: newSelectedDays,
-            wifiEdit: resolvedWifiEdit
+            wifiEdit: resolvedWifiEdit,
+            photoEdit: photoEdit
         ))
         navigationController?.popViewController(animated: true)
     }
@@ -621,6 +716,83 @@ final class EditMissionSheetViewController: UIViewController {
                 self.updateConfirmState()
             }
         }
+    }
+
+    // MARK: - Photo Section
+
+    private func renderPhotoSection() {
+        photoMessageLabel.isHidden = true
+        photoRemoveButton.isHidden = false
+
+        switch photoEdit {
+        case .unchanged:
+            if let missionID, let image = MissionPhotoRepository.shared.loadReferenceImage(for: missionID) {
+                showPhotoPreview(image)
+                photoStatusLabel.text = "현재 등록된 기준 사진"
+                photoStatusLabel.textColor = GTTColor.textPrimary
+                photoRetakeButton.setTitle("다시 찍기", for: .normal)
+                photoRemoveButton.setTitle("삭제", for: .normal)
+            } else {
+                photoPreviewImageView.isHidden = true
+                photoStatusLabel.text = "사진 인증이 설정되지 않았어요"
+                photoStatusLabel.textColor = GTTColor.textSecondary
+                photoRetakeButton.setTitle("사진 인증 추가하기", for: .normal)
+                photoRemoveButton.isHidden = true
+            }
+        case .set(let image, _):
+            showPhotoPreview(image)
+            photoStatusLabel.text = "새 기준 사진"
+            photoStatusLabel.textColor = GTTColor.textPrimary
+            photoMessageLabel.isHidden = false
+            photoMessageLabel.text = "저장하면 변경됩니다"
+            photoRetakeButton.setTitle("다시 찍기", for: .normal)
+            photoRemoveButton.setTitle("되돌리기", for: .normal)
+        case .remove:
+            photoPreviewImageView.isHidden = true
+            photoStatusLabel.text = "사진 인증이 삭제됩니다"
+            photoStatusLabel.textColor = GTTColor.textPrimary
+            photoRetakeButton.setTitle("되돌리기", for: .normal)
+            photoRemoveButton.isHidden = true
+        }
+    }
+
+    private func showPhotoPreview(_ image: UIImage) {
+        photoPreviewImageView.image = image
+        photoPreviewImageView.isHidden = false
+
+        photoAspectConstraint?.deactivate()
+        let ratio = image.size.width > 0 ? image.size.height / image.size.width : 1
+        photoPreviewImageView.snp.makeConstraints { make in
+            photoAspectConstraint = make.height.equalTo(photoPreviewImageView.snp.width).multipliedBy(ratio).constraint
+        }
+    }
+
+    @objc private func didTapPhotoRetake() {
+        view.endEditing(true)
+        if case .remove = photoEdit {
+            photoEdit = .unchanged
+            renderPhotoSection()
+            updateConfirmState()
+            return
+        }
+        let cameraVC = MissionCameraViewController(mode: .registration)
+        cameraVC.onRegistrationComplete = { [weak self] image, observation in
+            self?.photoEdit = .set(image, observation)
+            self?.renderPhotoSection()
+            self?.updateConfirmState()
+        }
+        navigationController?.present(cameraVC, animated: true)
+    }
+
+    @objc private func didTapPhotoRemove() {
+        view.endEditing(true)
+        if case .set = photoEdit {
+            photoEdit = .unchanged
+        } else {
+            photoEdit = .remove
+        }
+        renderPhotoSection()
+        updateConfirmState()
     }
 }
 

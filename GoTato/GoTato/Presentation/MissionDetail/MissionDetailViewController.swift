@@ -25,6 +25,7 @@ final class MissionDetailViewController: BaseViewController {
 
     weak var delegate: MissionDetailDelegate?
     private let viewModel: MissionDetailViewModel
+    private let missionID: UUID
     private let disposeBag = DisposeBag()
     private var latestInfo: MissionDetailState?
     private var latestIsMissionEnded: Bool = false
@@ -56,6 +57,7 @@ final class MissionDetailViewController: BaseViewController {
     // MARK: - Init
 
     init(missionID: UUID) {
+        self.missionID = missionID
         self.viewModel = MissionDetailViewModel(missionID: missionID)
         super.init(nibName: nil, bundle: nil)
     }
@@ -265,26 +267,43 @@ final class MissionDetailViewController: BaseViewController {
             currentDeadline: info.deadline,
             currentSelectedDays: info.selectedDays,
             currentWifiSSID: info.wifiSSID,
+            missionID: missionID,
             missionEndDate: info.endDate,
             isMissionEnded: latestIsMissionEnded
         )
         sheet.onConfirm = { [weak self] result in
+            guard let self else { return }
             if let title = result.newTitle {
-                self?.editTitleRelay.accept(title)
+                self.editTitleRelay.accept(title)
             }
             if let location = result.newLocationName {
-                self?.editLocationRelay.accept(location)
+                self.editLocationRelay.accept(location)
             }
             if let deadline = result.newDeadline {
-                self?.editDeadlineRelay.accept(deadline)
+                self.editDeadlineRelay.accept(deadline)
             }
             if let days = result.newSelectedDays {
-                self?.editSelectedDaysRelay.accept(days)
+                self.editSelectedDaysRelay.accept(days)
             }
             switch result.wifiEdit {
             case .unchanged: break
-            case .set(let ssid): self?.editWifiSSIDRelay.accept(ssid)
-            case .remove:        self?.editWifiSSIDRelay.accept(nil)
+            case .set(let ssid): self.editWifiSSIDRelay.accept(ssid)
+            case .remove:        self.editWifiSSIDRelay.accept(nil)
+            }
+            switch result.photoEdit {
+            case .unchanged: break
+            case .set(let image, let observation):
+                MissionPhotoRepository.shared.saveMissionPhoto(
+                    image,
+                    observation: observation,
+                    missionID: self.missionID
+                )
+                .subscribe()
+                .disposed(by: self.disposeBag)
+            case .remove:
+                MissionPhotoRepository.shared.deleteMissionPhoto(for: self.missionID)
+                    .subscribe()
+                    .disposed(by: self.disposeBag)
             }
         }
         navigationController?.pushViewController(sheet, animated: true)
