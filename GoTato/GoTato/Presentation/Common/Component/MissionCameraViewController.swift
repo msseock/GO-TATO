@@ -192,10 +192,12 @@ extension MissionCameraViewController: AVCapturePhotoCaptureDelegate {
 
         guard error == nil,
               let data = photo.fileDataRepresentation(),
-              let image = UIImage(data: data) else {
+              let raw = UIImage(data: data) else {
             showAlert(title: "촬영에 실패했습니다", message: "다시 시도해 주세요.")
             return
         }
+
+        let image = cropToPreviewBounds(raw)
 
         guard MissionPhotoService.validateImageQuality(image) else {
             showAlert(
@@ -238,6 +240,22 @@ extension MissionCameraViewController: AVCapturePhotoCaptureDelegate {
         case .invalidImage:
             showAlert(title: "검증할 수 없는 사진입니다", message: "피사체가 명확하게 보이도록 다시 촬영해 주세요.")
         }
+    }
+
+    private func cropToPreviewBounds(_ image: UIImage) -> UIImage {
+        guard let previewLayer,
+              let cgImage = image.cgImage else { return image }
+
+        let visibleRect = previewLayer.metadataOutputRectConverted(fromLayerRect: previewLayer.bounds)
+        let cropRect = CGRect(
+            x: visibleRect.origin.x * CGFloat(cgImage.width),
+            y: visibleRect.origin.y * CGFloat(cgImage.height),
+            width: visibleRect.size.width * CGFloat(cgImage.width),
+            height: visibleRect.size.height * CGFloat(cgImage.height)
+        )
+
+        guard let cropped = cgImage.cropping(to: cropRect) else { return image }
+        return UIImage(cgImage: cropped, scale: image.scale, orientation: image.imageOrientation)
     }
 
     private func showAlert(title: String, message: String) {
