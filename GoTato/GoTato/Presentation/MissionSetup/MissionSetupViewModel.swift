@@ -6,13 +6,27 @@
 //
 
 import Foundation
+import UIKit
+import Vision
 import RxSwift
 import RxCocoa
 
 final class MissionSetupViewModel: BaseViewModel {
 
+    struct PhotoCapture {
+        let image: UIImage
+        let observation: VNFeaturePrintObservation
+    }
+
+    struct CreateMissionInput {
+        let location: SelectedLocation
+        let routine: MissionRoutine
+        var wifiSSID: String? = nil
+        var photo: PhotoCapture? = nil
+    }
+
     struct Input {
-        let createMission: Observable<(SelectedLocation, MissionRoutine, String?)>
+        let createMission: Observable<CreateMissionInput>
     }
 
     struct Output {
@@ -24,7 +38,12 @@ final class MissionSetupViewModel: BaseViewModel {
 
     func transform(input: Input) -> Output {
         let missionResult = input.createMission
-            .flatMapLatest { location, routine, wifiSSID -> Observable<Event<Void>> in
+            .flatMapLatest { missionInput -> Observable<Event<Void>> in
+                let location = missionInput.location
+                let routine = missionInput.routine
+                let wifiSSID = missionInput.wifiSSID
+                let photoCapture = missionInput.photo
+
                 let startDate = Calendar.current.startOfDay(for: routine.startDate)
                 let endDate = Calendar.current.startOfDay(for: routine.endDate)
 
@@ -45,15 +64,24 @@ final class MissionSetupViewModel: BaseViewModel {
                     )
                 }
                 .do(onSuccess: { missionID in
-                    // Always 위치 권한 요청 (시스템이 적절한 시점에 프롬프트 표시)
                     LocationService.shared.requestAlwaysAuthorization()
 
-                    // 생성된 미션의 지오펜스 리전 등록
                     GeofenceManager.shared.registerRegion(
                         missionID: missionID,
                         latitude: location.lati,
                         longitude: location.longi
                     )
+
+                    // 사진 인증이 설정된 경우 저장
+                    if let capture = photoCapture {
+                        MissionPhotoRepository.shared.saveMissionPhoto(
+                            capture.image,
+                            observation: capture.observation,
+                            missionID: missionID
+                        )
+                        .subscribe()
+                        .disposed(by: self.disposeBag)
+                    }
                 })
                 .map { _ in }
                 .asObservable()

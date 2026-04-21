@@ -20,13 +20,14 @@ struct MissionRoutine {
 // MARK: - DateCardType
 
 enum DateCardType {
-    case start, end, time, wifi
+    case start, end, time, wifi, photo
 
     var icon: String {
         switch self {
         case .start, .end: return "calendar"
         case .time: return "clock"
         case .wifi: return "wifi"
+        case .photo: return "camera"
         }
     }
 
@@ -36,6 +37,7 @@ enum DateCardType {
         case .end:    return "끝나는 날"
         case .time:   return "도착목표 시간"
         case .wifi:   return "WiFi 인증 추가 (선택)"
+        case .photo:  return "사진 인증 추가 (선택)"
         }
     }
 }
@@ -48,6 +50,7 @@ final class RoutineSelectViewController: BaseViewController {
 
     var onRoutineConfirmed: ((SelectedLocation, MissionRoutine) -> Void)?
     var onAddWifiRequested: ((SelectedLocation, MissionRoutine) -> Void)?
+    var onAddPhotoRequested: ((SelectedLocation, MissionRoutine) -> Void)?
 
     // location 화면에서 전달받은 선택 위치
     var pendingLocation: SelectedLocation?
@@ -65,6 +68,7 @@ final class RoutineSelectViewController: BaseViewController {
     private let timeSubject = PublishSubject<Date>()
     private let ctaTappedSubject = PublishSubject<Void>()
     private let wifiTappedSubject = PublishSubject<Void>()
+    private let photoTappedSubject = PublishSubject<Void>()
 
     // Current State for Picker bounds
     private var currentStartDate: Date = Date()
@@ -82,6 +86,7 @@ final class RoutineSelectViewController: BaseViewController {
 
     private let timeCard = DateCard(type: .time)
     private let wifiCard = DateCard(type: .wifi)
+    private let photoCard = DateCard(type: .photo)
 
     private let ctaButton = GTTMainButton(
         title: "미션 만들기",
@@ -105,6 +110,7 @@ final class RoutineSelectViewController: BaseViewController {
         view.addSubview(daySelector)
         view.addSubview(timeCard)
         view.addSubview(wifiCard)
+        view.addSubview(photoCard)
         view.addSubview(ctaButton)
     }
 
@@ -139,6 +145,11 @@ final class RoutineSelectViewController: BaseViewController {
             make.leading.trailing.equalToSuperview().inset(24)
         }
 
+        photoCard.snp.makeConstraints { make in
+            make.top.equalTo(wifiCard.snp.bottom).offset(12)
+            make.leading.trailing.equalToSuperview().inset(24)
+        }
+
         ctaButton.snp.makeConstraints { make in
             make.bottom.equalTo(view.safeAreaLayoutGuide).inset(24)
             make.leading.trailing.equalToSuperview().inset(24)
@@ -158,6 +169,7 @@ final class RoutineSelectViewController: BaseViewController {
         endCard.onTap = { [weak self] in self?.handleEndCardTap() }
         timeCard.onTap = { [weak self] in self?.handleTimeCardTap() }
         wifiCard.onTap = { [weak self] in self?.wifiTappedSubject.onNext(()) }
+        photoCard.onTap = { [weak self] in self?.photoTappedSubject.onNext(()) }
 
         daySelector.onDayToggled = { [weak self] day in
             self?.dayToggledSubject.onNext(day)
@@ -179,7 +191,8 @@ final class RoutineSelectViewController: BaseViewController {
             allDaysToggled: allDaysToggledSubject.asObservable(),
             timeSelected: timeSubject.asObservable(),
             ctaTapped: ctaTappedSubject.asObservable(),
-            wifiTapped: wifiTappedSubject.asObservable()
+            wifiTapped: wifiTappedSubject.asObservable(),
+            photoTapped: photoTappedSubject.asObservable()
         )
 
         let output = viewModel.transform(input: input)
@@ -252,6 +265,13 @@ final class RoutineSelectViewController: BaseViewController {
             .emit(onNext: { [weak self] routine in
                 guard let self, let location = self.pendingLocation else { return }
                 self.onAddWifiRequested?(location, routine)
+            })
+            .disposed(by: disposeBag)
+
+        output.photoRequested
+            .emit(onNext: { [weak self] routine in
+                guard let self, let location = self.pendingLocation else { return }
+                self.onAddPhotoRequested?(location, routine)
             })
             .disposed(by: disposeBag)
     }

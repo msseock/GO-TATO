@@ -24,13 +24,14 @@ final class MissionSetupViewController: BaseViewController {
     private let viewModel = MissionSetupViewModel()
     private let disposeBag = DisposeBag()
 
-    private let createMissionSubject = PublishSubject<(SelectedLocation, MissionRoutine, String?)>()
+    private let createMissionSubject = PublishSubject<MissionSetupViewModel.CreateMissionInput>()
 
     // MARK: - Child View Controllers
 
     private let locationVC = LocationSelectViewController()
     private let routineVC = RoutineSelectViewController()
     private let wifiVC = WifiSelectViewController()
+    private let photoVC = PhotoSelectViewController()
 
     // MARK: - UI
 
@@ -112,13 +113,21 @@ final class MissionSetupViewController: BaseViewController {
         wifiVC.didMove(toParent: self)
         wifiVC.view.isHidden = true
 
+        addChild(photoVC)
+        containerView.addSubview(photoVC.view)
+        photoVC.view.snp.makeConstraints { make in
+            make.edges.equalToSuperview()
+        }
+        photoVC.didMove(toParent: self)
+        photoVC.view.isHidden = true
+
         locationVC.onLocationConfirmed = { [weak self] location in
             self?.routineVC.pendingLocation = location
             self?.transitionToRoutine()
         }
 
         routineVC.onRoutineConfirmed = { [weak self] location, routine in
-            self?.createMissionSubject.onNext((location, routine, nil))
+            self?.createMissionSubject.onNext(.init(location: location, routine: routine))
         }
 
         routineVC.onAddWifiRequested = { [weak self] location, routine in
@@ -127,12 +136,26 @@ final class MissionSetupViewController: BaseViewController {
             self?.transitionToWifi()
         }
 
+        routineVC.onAddPhotoRequested = { [weak self] location, routine in
+            self?.photoVC.pendingLocation = location
+            self?.photoVC.pendingRoutine = routine
+            self?.transitionToPhoto()
+        }
+
         wifiVC.onBackRequested = { [weak self] in
             self?.transitionBackToRoutine()
         }
 
         wifiVC.onWifiConfirmed = { [weak self] location, routine, ssid in
-            self?.createMissionSubject.onNext((location, routine, ssid))
+            self?.createMissionSubject.onNext(.init(location: location, routine: routine, wifiSSID: ssid))
+        }
+
+        photoVC.onBackRequested = { [weak self] in
+            self?.transitionBackToRoutine()
+        }
+
+        photoVC.onPhotoConfirmed = { [weak self] location, routine, image, observation in
+            self?.createMissionSubject.onNext(.init(location: location, routine: routine, photo: .init(image: image, observation: observation)))
         }
     }
 
@@ -167,7 +190,19 @@ final class MissionSetupViewController: BaseViewController {
             options: .transitionCrossDissolve
         ) {
             self.wifiVC.view.isHidden = true
+            self.photoVC.view.isHidden = true
             self.routineVC.view.isHidden = false
+        }
+    }
+
+    private func transitionToPhoto() {
+        UIView.transition(
+            with: containerView,
+            duration: 0.3,
+            options: .transitionCrossDissolve
+        ) {
+            self.routineVC.view.isHidden = true
+            self.photoVC.view.isHidden = false
         }
     }
 

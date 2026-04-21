@@ -17,6 +17,7 @@ final class RoutineSelectViewModel: BaseViewModel {
         let timeSelected: Observable<Date>
         let ctaTapped: Observable<Void>
         let wifiTapped: Observable<Void>
+        let photoTapped: Observable<Void>
     }
 
     struct Output {
@@ -29,6 +30,7 @@ final class RoutineSelectViewModel: BaseViewModel {
         let isCtaEnabled: Driver<Bool>
         let routineConfirmed: Signal<MissionRoutine>
         let wifiRequested: Signal<MissionRoutine>
+        let photoRequested: Signal<MissionRoutine>
     }
 
     private let disposeBag = DisposeBag()
@@ -146,6 +148,10 @@ final class RoutineSelectViewModel: BaseViewModel {
             .withLatestFrom(currentRoutine)
             .asSignal(onErrorSignalWith: .empty())
 
+        let photoRequested = input.photoTapped
+            .withLatestFrom(currentRoutine)
+            .asSignal(onErrorSignalWith: .empty())
+
         return Output(
             startDate: startDate.asDriver(),
             endDate: endDate.asDriver(),
@@ -155,7 +161,8 @@ final class RoutineSelectViewModel: BaseViewModel {
             selectedDays: selectedDays.asDriver(),
             isCtaEnabled: isCtaEnabled.asDriver(onErrorJustReturn: false),
             routineConfirmed: routineConfirmed,
-            wifiRequested: wifiRequested
+            wifiRequested: wifiRequested,
+            photoRequested: photoRequested
         )
     }
 
