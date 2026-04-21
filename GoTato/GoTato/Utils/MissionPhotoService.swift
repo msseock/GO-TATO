@@ -49,9 +49,10 @@ enum MissionPhotoService {
 
     // MARK: - Feature Print
 
-    /// 이미지에서 VNFeaturePrintObservation을 추출한다.
+    /// 이미지에서 VNFeaturePrintObservation을 추출한다. Vision 처리는 512×512로 정규화.
     static func extractFeaturePrint(from image: UIImage) throws -> VNFeaturePrintObservation {
-        guard let cgImage = image.fixedOrientation().cgImage else {
+        let visionSize = CGSize(width: 512, height: 512)
+        guard let cgImage = image.fixedOrientation().resized(to: visionSize).cgImage else {
             throw MissionPhotoError.invalidImage
         }
 
@@ -94,10 +95,9 @@ enum MissionPhotoService {
 
     // MARK: - Image Resizing
 
-    /// 512×512로 리사이즈 후 JPEG 데이터 반환. 저장용.
+    /// 원본 비율 그대로 JPEG 데이터 반환. 저장용.
     static func prepareImageData(_ image: UIImage) -> Data? {
-        image.resized(to: CGSize(width: 512, height: 512))
-             .jpegData(compressionQuality: 0.8)
+        image.fixedOrientation().jpegData(compressionQuality: 0.8)
     }
 
     // MARK: - Private
