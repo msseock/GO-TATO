@@ -15,6 +15,7 @@ struct DashboardMissionState {
     let missionID: UUID?
     let wifiSSID: String?
     let wifiWarning: String?
+    let hasMissionPhoto: Bool
 }
 
 enum MainActionState {
@@ -29,5 +30,6 @@ enum MainActionState {
 enum BottomButtonState {
     case hidden
     case checkIn(isEnabled: Bool)
+    case photoCheckIn(isEnabled: Bool)
     case commit
 }

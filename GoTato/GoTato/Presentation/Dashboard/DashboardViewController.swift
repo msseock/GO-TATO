@@ -5,6 +5,7 @@
 //  Created by 석민솔 on 3/24/26.
 //
 
+import AVFoundation
 import RxCocoa
 import RxSwift
 import SnapKit
@@ -234,6 +235,9 @@ final class DashboardViewController: BaseViewController {
         vc.onCheckInTapped = { [weak self] in
             self?.checkInButtonTappedRelay.accept(index)
         }
+        vc.onPhotoCheckInTapped = { [weak self] in
+            self?.presentPhotoVerification(at: index)
+        }
         vc.onCommitTapped = { [weak self] in
             self?.commitButtonTappedRelay.accept(index)
         }
@@ -278,6 +282,72 @@ final class DashboardViewController: BaseViewController {
         let vc = MissionSetupViewController(isFromOnboarding: false)
         vc.delegate = self
         present(vc, animated: true)
+    }
+
+    private func presentPhotoVerification(at index: Int) {
+        guard let missionID = viewModel.missionID(at: index) else { return }
+
+        guard let referenceImage = MissionPhotoRepository.shared.loadReferenceImage(for: missionID),
+              let observationData = MissionPhotoRepository.shared.loadObservationData(for: missionID) else {
+            showPhotoDataUnavailableAlert(index: index)
+            return
+        }
+
+        let status = AVCaptureDevice.authorizationStatus(for: .video)
+        switch status {
+        case .authorized:
+            openVerificationCamera(index: index, referenceImage: referenceImage, observationData: observationData)
+        case .notDetermined:
+            AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
+                DispatchQueue.main.async {
+                    if granted {
+                        self?.openVerificationCamera(index: index, referenceImage: referenceImage, observationData: observationData)
+                    }
+                }
+            }
+        case .denied, .restricted:
+            showCameraPermissionAlert()
+        @unknown default:
+            break
+        }
+    }
+
+    private func openVerificationCamera(index: Int, referenceImage: UIImage, observationData: Data) {
+        let cameraVC = MissionCameraViewController(
+            mode: .verification(referenceImage: referenceImage, observationData: observationData)
+        )
+        cameraVC.onVerificationResult = { [weak self] result in
+            guard result == .pass else { return }
+            self?.checkInButtonTappedRelay.accept(index)
+        }
+        present(cameraVC, animated: true)
+    }
+
+    private func showPhotoDataUnavailableAlert(index: Int) {
+        let alert = UIAlertController(
+            title: "기준 사진을 불러올 수 없어요",
+            message: "등록된 기준 사진 데이터를 찾을 수 없어요. 사진 없이 출근 인증을 진행할까요?",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "취소", style: .cancel))
+        alert.addAction(UIAlertAction(title: "인증하기", style: .default) { [weak self] _ in
+            self?.checkInButtonTappedRelay.accept(index)
+        })
+        present(alert, animated: true)
+    }
+
+    private func showCameraPermissionAlert() {
+        let alert = UIAlertController(
+            title: "카메라 접근 권한이 필요해요",
+            message: "사진 인증을 위해 카메라 권한을 허용해 주세요.",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "취소", style: .cancel))
+        alert.addAction(UIAlertAction(title: "설정으로 이동", style: .default) { _ in
+            guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+            UIApplication.shared.open(url)
+        })
+        present(alert, animated: true)
     }
 
     // MARK: - Geofence Notification

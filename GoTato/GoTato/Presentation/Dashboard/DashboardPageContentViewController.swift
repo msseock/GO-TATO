@@ -11,6 +11,7 @@ final class DashboardPageContentViewController: UIViewController {
     // MARK: - Callbacks
 
     var onCheckInTapped: (() -> Void)?
+    var onPhotoCheckInTapped: (() -> Void)?
     var onCommitTapped: (() -> Void)?
     var onRefreshPulled: (() -> Void)?
     var onRefreshTapped: (() -> Void)?
@@ -275,6 +276,17 @@ final class DashboardPageContentViewController: UIViewController {
             let btn = GTTMainButton(title: "출근 인증하기", icon: icon, style: style)
             btn.isEnabled = isEnabled
             btn.onTap = { [weak self] in self?.onCheckInTapped?() }
+            bottomButtonContainer.addSubview(btn)
+            btn.snp.makeConstraints { $0.edges.equalToSuperview() }
+            bottomButton = btn
+
+        case .photoCheckIn(let isEnabled):
+            bottomButtonContainer.isHidden = false
+            let cameraIcon = UIImage(systemName: "camera")
+            let style: GTTButtonStyle = isEnabled ? .primary : .secondary
+            let btn = GTTMainButton(title: "출근 인증하기", icon: cameraIcon, style: style)
+            btn.isEnabled = isEnabled
+            btn.onTap = { [weak self] in self?.onPhotoCheckInTapped?() }
             bottomButtonContainer.addSubview(btn)
             btn.snp.makeConstraints { $0.edges.equalToSuperview() }
             bottomButton = btn

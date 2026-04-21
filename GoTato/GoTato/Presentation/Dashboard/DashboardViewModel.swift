@@ -135,16 +135,18 @@ final class DashboardViewModel: BaseViewModel {
                 var states = self.statesRelay.value
                 if index < states.count {
                     let s = states[index]
+                    let disabledBtn: BottomButtonState = s.hasMissionPhoto ? .photoCheckIn(isEnabled: false) : .checkIn(isEnabled: false)
                     states[index] = DashboardMissionState(
                         title: s.title,
                         deadline: s.deadline,
                         messageCardState: s.messageCardState,
                         mainActionState: s.mainActionState,
-                        bottomButtonState: .checkIn(isEnabled: false),
+                        bottomButtonState: disabledBtn,
                         attendanceID: s.attendanceID,
                         missionID: s.missionID,
                         wifiSSID: s.wifiSSID,
-                        wifiWarning: s.wifiWarning
+                        wifiWarning: s.wifiWarning,
+                        hasMissionPhoto: s.hasMissionPhoto
                     )
                     self.statesRelay.accept(states)
                 }
@@ -186,7 +188,8 @@ final class DashboardViewModel: BaseViewModel {
                         attendanceID: s.attendanceID,
                         missionID: s.missionID,
                         wifiSSID: s.wifiSSID,
-                        wifiWarning: nil
+                        wifiWarning: nil,
+                        hasMissionPhoto: s.hasMissionPhoto
                     )
                     self.statesRelay.accept(states)
                 }
@@ -289,6 +292,7 @@ final class DashboardViewModel: BaseViewModel {
             if let s = mission.wifiSSID, !s.isEmpty { return s }
             return nil
         }()
+        let hasMissionPhoto = mission.missionPhoto != nil
 
         let authStatus = locationService.authorizationStatus.value
         let isLocationDenied = authStatus == .denied || authStatus == .restricted
@@ -304,7 +308,8 @@ final class DashboardViewModel: BaseViewModel {
                 attendanceID: attendanceID,
                 missionID: missionID,
                 wifiSSID: missionWifiSSID,
-                wifiWarning: nil
+                wifiWarning: nil,
+                hasMissionPhoto: hasMissionPhoto
             )
         }
 
@@ -321,7 +326,8 @@ final class DashboardViewModel: BaseViewModel {
                     attendanceID: attendanceID,
                     missionID: missionID,
                     wifiSSID: missionWifiSSID,
-                    wifiWarning: nil
+                    wifiWarning: nil,
+                    hasMissionPhoto: hasMissionPhoto
                 )
             } else {
                 // 지각출근 성공 (1.4)
@@ -335,7 +341,8 @@ final class DashboardViewModel: BaseViewModel {
                     attendanceID: attendanceID,
                     missionID: missionID,
                     wifiSSID: missionWifiSSID,
-                    wifiWarning: nil
+                    wifiWarning: nil,
+                    hasMissionPhoto: hasMissionPhoto
                 )
             }
         } else if now >= threeHoursAfterPlan {
@@ -349,64 +356,73 @@ final class DashboardViewModel: BaseViewModel {
                 attendanceID: attendanceID,
                 missionID: missionID,
                 wifiSSID: missionWifiSSID,
-                wifiWarning: nil
+                wifiWarning: nil,
+                hasMissionPhoto: hasMissionPhoto
             )
         } else if now >= planDate {
             // 지각출근중 (1.2)
             let lateStr = formatDuration(now.timeIntervalSince(planDate))
             if isLocationDenied {
+                let disabledBtn: BottomButtonState = hasMissionPhoto ? .photoCheckIn(isEnabled: false) : .checkIn(isEnabled: false)
                 return DashboardMissionState(
                     title: mission.title ?? "",
                     deadline: deadlineStr,
                     messageCardState: .commutingLate(lateTime: lateStr, location: locationName),
                     mainActionState: .locationPermissionDenied,
-                    bottomButtonState: .checkIn(isEnabled: false),
+                    bottomButtonState: disabledBtn,
                     attendanceID: attendanceID,
                     missionID: missionID,
                     wifiSSID: missionWifiSSID,
-                    wifiWarning: nil
+                    wifiWarning: nil,
+                    hasMissionPhoto: hasMissionPhoto
                 )
             }
             let ongoing = buildOngoingState(mission: mission)
+            let bottomBtn: BottomButtonState = hasMissionPhoto ? .photoCheckIn(isEnabled: ongoing.isNear) : .checkIn(isEnabled: ongoing.isNear)
             return DashboardMissionState(
                 title: mission.title ?? "",
                 deadline: deadlineStr,
                 messageCardState: .commutingLate(lateTime: lateStr, location: locationName),
                 mainActionState: .ongoing(ongoing.cardState),
-                bottomButtonState: .checkIn(isEnabled: ongoing.isNear),
+                bottomButtonState: bottomBtn,
                 attendanceID: attendanceID,
                 missionID: missionID,
                 wifiSSID: missionWifiSSID,
-                wifiWarning: ongoing.wifiWarning
+                wifiWarning: ongoing.wifiWarning,
+                hasMissionPhoto: hasMissionPhoto
             )
         } else {
             // 정상출근중 (1.1)
             let leftStr = formatDuration(planDate.timeIntervalSince(now))
             let planTimeStr = formatPlanTime(planDate)
             if isLocationDenied {
+                let disabledBtn: BottomButtonState = hasMissionPhoto ? .photoCheckIn(isEnabled: false) : .checkIn(isEnabled: false)
                 return DashboardMissionState(
                     title: mission.title ?? "",
                     deadline: deadlineStr,
                     messageCardState: .commutingOnTime(leftTime: leftStr, time: planTimeStr, location: locationName),
                     mainActionState: .locationPermissionDenied,
-                    bottomButtonState: .checkIn(isEnabled: false),
+                    bottomButtonState: disabledBtn,
                     attendanceID: attendanceID,
                     missionID: missionID,
                     wifiSSID: missionWifiSSID,
-                    wifiWarning: nil
+                    wifiWarning: nil,
+                    hasMissionPhoto: hasMissionPhoto
                 )
             }
             let ongoing = buildOngoingState(mission: mission)
+            let bottomBtn: BottomButtonState = hasMissionPhoto ? .photoCheckIn(isEnabled: ongoing.isNear) : .checkIn(isEnabled: ongoing.isNear)
             return DashboardMissionState(
                 title: mission.title ?? "",
                 deadline: deadlineStr,
                 messageCardState: .commutingOnTime(leftTime: leftStr, time: planTimeStr, location: locationName),
                 mainActionState: .ongoing(ongoing.cardState),
-                bottomButtonState: .checkIn(isEnabled: ongoing.isNear),
+                bottomButtonState: bottomBtn,
                 attendanceID: attendanceID,
                 missionID: missionID,
                 wifiSSID: missionWifiSSID,
-                wifiWarning: ongoing.wifiWarning
+                wifiWarning: ongoing.wifiWarning,
+                hasMissionPhoto: hasMissionPhoto
             )
         }
     }
