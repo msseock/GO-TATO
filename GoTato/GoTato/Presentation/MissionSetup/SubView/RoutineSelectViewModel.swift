@@ -88,11 +88,14 @@ final class RoutineSelectViewModel: BaseViewModel {
             .bind(to: selectedTime)
             .disposed(by: disposeBag)
 
-        // availableDays가 변경되면 disabled된 요일을 selectedDays에서 제거
+        // availableDays가 변경되면 disabled된 요일을 selectedDays에서 제거하거나, 텅 비어있으면 채워줌
         availableDays
             .subscribe(onNext: { available in
-                let filtered = selectedDays.value.intersection(available)
-                if filtered != selectedDays.value {
+                let current = selectedDays.value
+                let filtered = current.intersection(available)
+                
+                if current.isEmpty || filtered != current {
+                    // 필터링 후 비어있다면(혹은 원래 비어있었다면) 가능한 모든 요일 선택
                     selectedDays.accept(filtered.isEmpty ? available : filtered)
                 }
             })
@@ -120,8 +123,16 @@ final class RoutineSelectViewModel: BaseViewModel {
             })
             .disposed(by: disposeBag)
 
-        let isCtaEnabled = selectedDays.asObservable()
-            .map { !$0.isEmpty }
+        let isCtaEnabled = Observable.combineLatest(showDaySelector, selectedDays.asObservable())
+            .map { showSelector, days in
+                if showSelector {
+                    // 여러 날짜면 요일이 하나라도 선택되어야 함
+                    return !days.isEmpty
+                } else {
+                    // 하루짜리 미션이면 요일 선택 여부와 관계없이 항상 활성화
+                    return true
+                }
+            }
 
         let currentRoutine = Observable.combineLatest(
             startDate.asObservable(),
