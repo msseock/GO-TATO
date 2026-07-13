@@ -8,6 +8,7 @@ import Foundation
 import NMapsMap
 import RxCocoa
 import RxSwift
+import WidgetKit
 
 final class DashboardViewModel: BaseViewModel {
 
@@ -35,6 +36,7 @@ final class DashboardViewModel: BaseViewModel {
     private var currentLocation: CLLocation?
     /// 비동기로 fetch된 현재 연결 WiFi의 SSID. NEHotspotNetwork 결과 캐시.
     private var currentWifiSSID: String?
+    private var lastWidgetSnapshots: [WidgetMissionSnapshot] = []
 
     private let statesRelay = BehaviorRelay<[DashboardMissionState]>(value: [])
 
@@ -276,6 +278,50 @@ final class DashboardViewModel: BaseViewModel {
     private func recalculateStates() {
         let states = rawPairs.map { calculateState(for: $0) }
         statesRelay.accept(states)
+        syncWidgetSnapshots(from: states)
+    }
+
+    /// 위젯이 조회할 미션 상태 스냅샷을 App Group에 저장하고 타임라인을 갱신
+    /// (이전 값과 동일하면 스킵 => 위치 갱신마다 불필요하게 reload되지 않도록)
+    private func syncWidgetSnapshots(from states: [DashboardMissionState]) {
+        let snapshots = states.compactMap(widgetSnapshot(from:))
+        guard snapshots != lastWidgetSnapshots else { return }
+        lastWidgetSnapshots = snapshots
+        WidgetSnapshotStore.save(snapshots)
+        WidgetCenter.shared.reloadTimelines(ofKind: "MissionWidget")
+    }
+
+    private func widgetSnapshot(from state: DashboardMissionState) -> WidgetMissionSnapshot? {
+        guard let missionID = state.missionID,
+              let pair = rawPairs.first(where: { $0.mission.id == missionID }),
+              let planDate = pair.attendance.planDate
+        else { return nil }
+
+        let displayState: WidgetDisplayState
+        switch state.mainActionState {
+        case .noMission:
+            return nil
+        case .ongoing(let card):
+            if case .nearDestination = card {
+                displayState = .ongoing(isNear: true)
+            } else {
+                displayState = .ongoing(isNear: false)
+            }
+        case .locationPermissionDenied:
+            displayState = .locationPermissionDenied
+        case .success:
+            displayState = .success
+        case .failed, .failedCommitted:
+            displayState = .failed
+        }
+
+        return WidgetMissionSnapshot(
+            id: missionID,
+            title: state.title,
+            deadline: state.deadline,
+            planDate: planDate,
+            displayState: displayState
+        )
     }
 
     private func calculateState(for pair: (mission: Mission, attendance: Attendance)) -> DashboardMissionState {
