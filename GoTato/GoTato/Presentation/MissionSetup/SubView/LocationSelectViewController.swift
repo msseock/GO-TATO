@@ -131,7 +131,7 @@ final class LocationSelectViewController: BaseViewController {
         rListContainer.snp.makeConstraints { make in
             make.top.equalTo(searchContainer.snp.bottom).offset(12)
             make.leading.trailing.equalToSuperview().inset(24)
-            rListHeightConstraint = make.height.equalTo(0).constraint
+            rListHeightConstraint = make.height.equalTo(0).priority(999).constraint
         }
 
         tableView.snp.makeConstraints { $0.edges.equalToSuperview() }
@@ -140,7 +140,7 @@ final class LocationSelectViewController: BaseViewController {
         mapPreviewContainer.snp.makeConstraints { make in
             make.top.equalTo(rListContainer.snp.bottom).offset(12)
             make.leading.trailing.equalToSuperview().inset(24)
-            mapPreviewHeightConstraint = make.height.equalTo(0).constraint
+            mapPreviewHeightConstraint = make.height.equalTo(0).priority(999).constraint
             make.bottom.lessThanOrEqualTo(ctaButton.snp.top).offset(-16)
         }
 
@@ -158,6 +158,7 @@ final class LocationSelectViewController: BaseViewController {
         titleLabel.font = GTTFont.dashboardTitle.font
         titleLabel.textColor = GTTColor.textPrimary
         titleLabel.numberOfLines = 2
+        titleLabel.setContentCompressionResistancePriority(.required, for: .vertical)
 
         searchContainer.backgroundColor = GTTColor.white
         searchContainer.layer.cornerRadius = 14
