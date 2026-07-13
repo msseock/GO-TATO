@@ -114,6 +114,7 @@ final class DashboardPageContentViewController: UIViewController {
 
         titleLabel.snp.makeConstraints {
             $0.top.leading.equalToSuperview()
+            $0.trailing.lessThanOrEqualToSuperview().offset(-32)
             $0.height.greaterThanOrEqualTo(32)
         }
         
