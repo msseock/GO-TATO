@@ -40,6 +40,32 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 }
             }
         }
+
+        // Cold start 시 위젯 딥링크(gotato://mission/{id})로 실행된 경우 처리
+        if let url = connectionOptions.urlContexts.first?.url {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                self.routeDeepLink(url)
+            }
+        }
+    }
+
+    func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
+        guard let url = URLContexts.first?.url else { return }
+        routeDeepLink(url)
+    }
+
+    /// gotato://mission/{missionID} 형태의 위젯 딥링크를 파싱해 기존 지오펜스 알림 딥링크 경로로 우회시킨다.
+    private func routeDeepLink(_ url: URL) {
+        guard url.scheme == "gotato",
+              url.host == "mission",
+              let missionID = UUID(uuidString: url.lastPathComponent)
+        else { return }
+
+        NotificationCenter.default.post(
+            name: .didTapGeofenceNotification,
+            object: nil,
+            userInfo: ["missionID": missionID]
+        )
     }
 
     func sceneDidDisconnect(_ scene: UIScene) { }
