@@ -7,6 +7,7 @@ import CoreLocation
 import CoreData
 import RxCocoa
 import RxSwift
+import WidgetKit
 
 final class GeofenceManager {
     static let shared = GeofenceManager()
@@ -149,6 +150,20 @@ final class GeofenceManager {
 
         // recordDate가 있으면 이미 체크인한 것 → 스킵
         guard attendance.recordDate == nil else { return }
+
+        // 지오펜스 진입 = 목적지 반경 100m 이내 도달 → 위젯 스냅샷 부분 갱신
+        if let title = mission.title {
+            WidgetSnapshotStore.upsert(
+                WidgetMissionSnapshot(
+                    id: missionID,
+                    title: title,
+                    deadline: WidgetSnapshotStore.formatDeadline(planDate),
+                    planDate: planDate,
+                    displayState: .ongoing(isNear: true)
+                )
+            )
+            WidgetCenter.shared.reloadTimelines(ofKind: "MissionWidget")
+        }
 
         let locationName = mission.location?.name ?? ""
         notificationService.sendNearLocationNotification(

@@ -54,4 +54,15 @@ enum WidgetSnapshotStore {
     static func nearestMission(from snapshots: [WidgetMissionSnapshot], now: Date = Date()) -> WidgetMissionSnapshot? {
         snapshots.min { abs($0.planDate.timeIntervalSince(now)) < abs($1.planDate.timeIntervalSince(now)) }
     }
+
+    /// DashboardViewModel.formatDeadline과 동일한 포맷("오후 9시 30분까지"). 위젯 스냅샷 부분 갱신 시 재사용.
+    static func formatDeadline(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ko_KR")
+        formatter.dateFormat = "a h시"
+        let hourStr = formatter.string(from: date)
+
+        let minutes = Calendar.current.component(.minute, from: date)
+        return minutes == 0 ? "\(hourStr)까지" : "\(hourStr) \(minutes)분까지"
+    }
 }
