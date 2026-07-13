@@ -369,7 +369,8 @@ final class LocationSelectViewController: BaseViewController {
               let frame = info[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect,
               let duration = info[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double else { return }
         let frameInView = view.convert(frame, from: nil)
-        let offset = max(view.bounds.maxY - frameInView.minY - view.safeAreaInsets.bottom, 24)
+        let keyboardTopPadding: CGFloat = 16
+        let offset = max(view.bounds.maxY - frameInView.minY - view.safeAreaInsets.bottom, 24) + keyboardTopPadding
         ctaBottomConstraint?.update(inset: offset)
         UIView.animate(withDuration: duration) { self.view.layoutIfNeeded() }
     }
