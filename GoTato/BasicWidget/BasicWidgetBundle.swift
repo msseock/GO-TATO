@@ -12,5 +12,6 @@ import SwiftUI
 struct BasicWidgetBundle: WidgetBundle {
     var body: some Widget {
         BasicWidget()
+        MissionWidget()
     }
 }
