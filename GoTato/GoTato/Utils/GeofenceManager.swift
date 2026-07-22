@@ -159,7 +159,10 @@ final class GeofenceManager {
                     title: title,
                     deadline: WidgetSnapshotStore.formatDeadline(planDate),
                     planDate: planDate,
-                    displayState: .ongoing(isNear: true)
+                    displayState: .ongoing(isNear: true),
+                    targetLatitude: mission.location?.lati ?? 0,
+                    targetLongitude: mission.location?.longi ?? 0,
+                    targetRadius: Self.regionRadius
                 )
             )
             WidgetCenter.shared.reloadTimelines(ofKind: "MissionWidget")

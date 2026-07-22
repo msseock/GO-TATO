@@ -8,6 +8,10 @@ struct WidgetMissionSnapshot: Codable, Identifiable, Equatable {
     let deadline: String
     let planDate: Date
     let displayState: WidgetDisplayState
+    // ponytail: var + 기본값으로 기존 저장 JSON 역호환 유지
+    var targetLatitude: Double = 0
+    var targetLongitude: Double = 0
+    var targetRadius: Double = 100
 }
 
 enum WidgetDisplayState: Codable, Equatable {

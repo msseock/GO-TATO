@@ -320,7 +320,10 @@ final class DashboardViewModel: BaseViewModel {
             title: state.title,
             deadline: state.deadline,
             planDate: planDate,
-            displayState: displayState
+            displayState: displayState,
+            targetLatitude: pair.mission.location?.lati ?? 0,
+            targetLongitude: pair.mission.location?.longi ?? 0,
+            targetRadius: GeofenceManager.regionRadius
         )
     }
 
