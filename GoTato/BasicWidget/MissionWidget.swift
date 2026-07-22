@@ -6,6 +6,7 @@
 import WidgetKit
 import SwiftUI
 import AppIntents
+import CoreLocation
 
 // MARK: - Configuration Intent
 
@@ -26,6 +27,52 @@ struct MissionEntity: AppEntity {
 
     var displayRepresentation: DisplayRepresentation {
         DisplayRepresentation(title: "\(title)")
+    }
+}
+
+// MARK: - Refresh Intent
+
+struct RefreshMissionIntent: AppIntent {
+    static var title: LocalizedStringResource = "미션 새로고침"
+
+    @Parameter(title: "미션 ID")
+    var missionID: String
+
+    init() {}
+    init(missionID: String) { self.missionID = missionID }
+
+    func perform() async throws -> some IntentResult {
+        guard let uuid = UUID(uuidString: missionID),
+              let snapshot = WidgetSnapshotStore.load().first(where: { $0.id == uuid }),
+              case .ongoing = snapshot.displayState,
+              snapshot.targetLatitude != 0 || snapshot.targetLongitude != 0
+        else { return .result() }
+
+        let currentLocation = try await fetchCurrentLocation()
+        let target = CLLocation(latitude: snapshot.targetLatitude, longitude: snapshot.targetLongitude)
+        let isNear = currentLocation.distance(from: target) <= snapshot.targetRadius
+
+        let updated = WidgetMissionSnapshot(
+            id: snapshot.id,
+            title: snapshot.title,
+            deadline: snapshot.deadline,
+            planDate: snapshot.planDate,
+            displayState: .ongoing(isNear: isNear),
+            targetLatitude: snapshot.targetLatitude,
+            targetLongitude: snapshot.targetLongitude,
+            targetRadius: snapshot.targetRadius
+        )
+        WidgetSnapshotStore.upsert(updated)
+        WidgetCenter.shared.reloadTimelines(ofKind: "MissionWidget")
+        return .result()
+    }
+
+    // ponytail: iOS 17+ liveUpdates — delegate 없이 첫 위치 하나만 꺼냄
+    private func fetchCurrentLocation() async throws -> CLLocation {
+        for try await update in CLLocationUpdate.liveUpdates() {
+            if let loc = update.location { return loc }
+        }
+        throw CancellationError()
     }
 }
 
