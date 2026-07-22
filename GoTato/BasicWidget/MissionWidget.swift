@@ -124,7 +124,7 @@ struct MissionEntry: TimelineEntry {
     let snapshot: WidgetMissionSnapshot?
 }
 
-// MARK: - View
+// MARK: - Entry View
 
 struct MissionWidgetEntryView: View {
     var entry: MissionEntry
@@ -132,7 +132,7 @@ struct MissionWidgetEntryView: View {
     var body: some View {
         Group {
             if let snapshot = entry.snapshot {
-                content(for: snapshot)
+                MissionContentView(snapshot: snapshot, updateDate: entry.date)
                     .widgetURL(URL(string: "gotato://mission/\(snapshot.id.uuidString)"))
             } else {
                 Text("표시할 미션이 없어요")
@@ -143,7 +143,24 @@ struct MissionWidgetEntryView: View {
         .containerBackground(for: .widget) { Color(uiColor: backgroundColor(for: entry.snapshot?.displayState)) }
     }
 
-    private func content(for snapshot: WidgetMissionSnapshot) -> some View {
+    private func backgroundColor(for state: WidgetDisplayState?) -> UIColor {
+        switch state {
+        case .none: return GTTColor.surface
+        case .ongoing(let isNear): return isNear ? GTTColor.bgCard : GTTColor.infoLight
+        case .success: return GTTColor.successLight
+        case .failed: return GTTColor.errorLight
+        case .locationPermissionDenied: return GTTColor.surface
+        }
+    }
+}
+
+// MARK: - Subviews
+
+private struct MissionContentView: View {
+    let snapshot: WidgetMissionSnapshot
+    let updateDate: Date
+
+    var body: some View {
         VStack(spacing: 0) {
             Text(snapshot.title)
                 .font(.subheadline).bold()
@@ -154,36 +171,39 @@ struct MissionWidgetEntryView: View {
                 .font(.caption2)
                 .foregroundStyle(Color(uiColor: GTTColor.textSecondary))
                 .padding(.vertical, 4)
-            
-            statusView(for: snapshot.displayState)
-                .frame(
-                    maxWidth: .infinity,
-                    minHeight: 32
-                )
 
-            Image(potatoImageName(for: snapshot.displayState))
+            MissionStatusLabel(state: snapshot.displayState)
+                .frame(maxWidth: .infinity, minHeight: 32)
+
+            Spacer()
+
+            MissionBottomBar(snapshot: snapshot, updateDate: updateDate)
+                .padding(.horizontal, -12)
+        }
+        .padding(.horizontal, 12)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(alignment: .bottom) {
+            Image(potatoImageName)
                 .resizable()
                 .aspectRatio(contentMode: .fit)
                 .frame(width: 120, height: 120)
-//                .offset(y: 16)
+                .offset(y: 64)
         }
-        .padding(.top, 30)
-        .padding(.horizontal, 12)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .offset(y: 16)
     }
 
-    private func potatoImageName(for state: WidgetDisplayState) -> String {
-        switch state {
+    private var potatoImageName: String {
+        switch snapshot.displayState {
         case .ongoing: return "PotatoFighting"
         case .success: return "PotatoNametag"
         case .failed, .locationPermissionDenied: return "PotatoSad"
         }
     }
+}
 
-    /// isNear일 땐 눌러야 할 것처럼 보이는 CTA 캡슐 버튼, 그 외엔 일반 상태 텍스트.
-    @ViewBuilder
-    private func statusView(for state: WidgetDisplayState) -> some View {
+private struct MissionStatusLabel: View {
+    let state: WidgetDisplayState
+
+    var body: some View {
         switch state {
         case .ongoing(let isNear) where isNear:
             Text("인증하기")
@@ -210,15 +230,32 @@ struct MissionWidgetEntryView: View {
                 .foregroundStyle(Color(uiColor: GTTColor.textQuiet))
         }
     }
+}
 
-    private func backgroundColor(for state: WidgetDisplayState?) -> UIColor {
-        switch state {
-        case .none: return GTTColor.surface
-        case .ongoing(let isNear): return isNear ? GTTColor.bgCard : GTTColor.infoLight
-        case .success: return GTTColor.successLight
-        case .failed: return GTTColor.errorLight
-        case .locationPermissionDenied: return GTTColor.surface
+private struct MissionBottomBar: View {
+    let snapshot: WidgetMissionSnapshot
+    let updateDate: Date
+
+    var body: some View {
+        HStack(spacing: 0) {
+            Spacer()
+            if case .ongoing = snapshot.displayState {
+                Button(intent: RefreshMissionIntent(missionID: snapshot.id.uuidString)) {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.caption2)
+                        .fontWeight(.bold)
+                        .foregroundStyle(Color(uiColor: GTTColor.textQuiet))
+                }
+                .buttonStyle(.plain)
+            }
         }
+    }
+
+    private var formattedUpdateTime: String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ko_KR")
+        formatter.dateFormat = "d일(E) HH:mm 기준"
+        return formatter.string(from: updateDate)
     }
 }
 
